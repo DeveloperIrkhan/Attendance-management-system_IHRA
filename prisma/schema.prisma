@@ -1,0 +1,236 @@
+generator markdown {
+  provider = "prisma-markdown"
+  output   = "./ERD.md"
+  title    = "My Database Schema"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Department {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  employees   Employee[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Designation {
+  id        String     @id @default(cuid())
+  title     String     @unique
+  employees Employee[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Employee {
+  id           String    @id @default(cuid())
+  employeeCode String    @unique
+  biometricId  String?   @unique
+  name         String
+  email        String    @unique
+  phoneNumber  String?
+  joiningDate  DateTime?
+
+  departmentId  String
+  designationId String?
+  //relationship
+  department    Department   @relation(fields: [departmentId], references: [id])
+  designation   Designation? @relation(fields: [designationId], references: [id])
+
+  attendance    Attendance[]
+  importedRows  ImportedAttendanceRow[]
+  leaveRequests LeaveRequest[]
+  shortLeaves   ShortLeave[]
+  user          User?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+}
+
+model Attendance {
+  id         String   @id @default(cuid())
+  employeeId String
+  date       DateTime @db.Date
+
+  checkIn  DateTime?
+  checkOut DateTime?
+
+  workingMinutes    Int @default(0)
+  lateMinutes       Int @default(0)
+  earlyLeaveMinutes Int @default(0)
+  overtimeMinutes   Int @default(0)
+
+  status  AttendanceStatus @default(INCOMPLETE)
+  remarks String?
+
+  employee  Employee @relation(fields: [employeeId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, date]) //This ensures that an employee can have only one attendance record per date.
+  @@index([date]) //This creates a database index on the date column.
+  @@index([employeeId, date]) //This creates a composite index using two columns: employeeId and date.
+}
+
+model ImportBatch {
+  id       String       @id @default(cuid())
+  fileName String
+  fileHash String?
+  month    Int
+  year     Int
+  status   ImportStatus @default(UPLOADED)
+
+  totalRows      Int @default(0)
+  successfulRows Int @default(0)
+  failedRows     Int @default(0)
+
+  importedRows ImportedAttendanceRow[]
+  errors       ImportError[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ImportedAttendanceRow {
+  id            String  @id @default(cuid())
+  importBatchId String
+  employeeId    String?
+
+  sourceRowNumber Int
+  rawData         Json
+
+  attendanceDate DateTime? @db.Date
+  sourceClockIn  String?
+  sourceClockOut String?
+  sourceAbsent   Boolean?
+  sourceWorkTime String?
+  sourceAttTime  String?
+  sourcePunches  String?
+
+  importBatch ImportBatch @relation(fields: [importBatchId], references: [id])
+  employee    Employee?   @relation(fields: [employeeId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([importBatchId, sourceRowNumber])
+  @@index([employeeId, attendanceDate])
+}
+
+model ImportError {
+  id            String  @id @default(cuid())
+  importBatchId String
+  rowNumber     Int?
+  columnName    String?
+  message       String
+
+  importBatch ImportBatch @relation(fields: [importBatchId], references: [id])
+  createdAt   DateTime    @default(now())
+}
+
+model LeaveType {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  isPaid        Boolean        @default(true)
+  leaveRequests LeaveRequest[]
+}
+
+model LeaveRequest {
+  id          String             @id @default(cuid())
+  employeeId  String
+  leaveTypeId String
+  startDate   DateTime           @db.Date
+  endDate     DateTime           @db.Date
+  reason      String?
+  status      LeaveRequestStatus @default(PENDING)
+
+  employee  Employee  @relation(fields: [employeeId], references: [id])
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId, startDate, endDate])
+}
+
+model ShortLeave {
+  id              String    @id @default(cuid())
+  employeeId      String
+  date            DateTime  @db.Date
+  startTime       DateTime?
+  endTime         DateTime?
+  durationMinutes Int       @default(0)
+  reason          String?
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId, date])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  permissions String[] @default([])
+  isSystem    Boolean  @default(false)
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id           String  @id @default(cuid())
+  fullName     String
+  email        String  @unique
+  passwordHash String
+  isActive     Boolean @default(true)
+  mustChangePassword  Boolean   @default(false)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  roleId     String 
+  employeeId String? @unique
+
+  role     Role      @relation(fields: [roleId], references: [id])
+  employee Employee? @relation(fields: [employeeId], references: [id])
+
+  lastLoginAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+////////////////////////////enums////////////////////////////
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  ON_LEAVE
+  HOLIDAY
+  WEEKEND
+  INCOMPLETE
+}
+
+enum ImportStatus {
+  UPLOADED
+  PROCESSING
+  COMPLETED
+  FAILED
+  COMPLETED_WITH_ERRORS
+}

@@ -1,26 +1,66 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap");
 @import "tailwindcss";
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --color-black: #171717;
 }
 
-@theme inline {
-  --color-background: var(--background);
+@theme {
+  --color-text: (var(--color-black));
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  color: var(--color-black);
+  font-family: Arial, Helvetica, sans-serif;
+}
+input {
+  background: #ededed;
+  color: #0a0a0a;
+  border: 1px black solid;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    /* @apply border-outline-ring/50; */
+  }
+  body {
+    @apply text-foreground;
+  }
+  html {
+    @apply font-serif;
+  }
+}
+@import "tailwindcss";
+
+@layer components {
+  .custom-button {
+    @apply bg-green-500 w-full py-2 text-lg rounded-md text-white hover:bg-green-700 duration-400 hover:shadow-[0_0_10px_rgba(0,0,0,0.3)];
+  }
+
+  .transparent-button {
+    @apply border border-white text-green-600 hover:bg-green-700 hover:text-white duration-400;
+  }
+
+  .hoverEffect {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  .bordered {
+    @apply border border-red-700;
+  }
+
+  .custom-input {
+    @apply bg-white px-1.5 py-1 text-lg rounded-sm border border-green-600 transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-green-600;
+  }
+}
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
 }
