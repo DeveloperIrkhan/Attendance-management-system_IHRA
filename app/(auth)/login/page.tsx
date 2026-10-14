@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
+import Spinner from "@/components/Spinner";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,8 +25,10 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Login failed");
+        toast.error(data.error?? "login fails!")
         return;
       }
+      toast.success("login successfull!")
       router.replace(data.redirectTo);
       router.refresh();
     } catch {
@@ -33,16 +37,17 @@ export default function LoginPage() {
       setLoading(false);
     }
   }
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-100 p-4">
+    return (
+    <div className="flex min-h-screen items-center justify-center bg-zinc-200 p-4">
+      {loading && <Spinner/>}
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow-md"
+        className="w-full max-w-sm space-y-5 rounded-lg bg-white p-6 shadow-lg"
       >
-        <h1 className="text-xl font-semibold text-center">IHRA Attendance System</h1>
-        <p className="text-sm text-zinc-500 text-center">Sign in to continue</p>
-
+        <div>
+          <h1 className="text-xl font-bold text-center text-green-600">IHRA Attendance System</h1>
+          <p className="text-sm text-zinc-500 text-center">Sign in to continue</p>
+        </div>
         {error && (
           <div className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>
         )}
@@ -56,7 +61,7 @@ export default function LoginPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded border px-3 py-2 custom-input"
+            className="w-full rounded px-3 py-2 custom-input"
           />
         </div>
 
@@ -69,7 +74,7 @@ export default function LoginPage() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded border px-3 py-2 custom-input"
+            className="w-full rounded px-3 py-2 custom-input"
           />
         </div>
 

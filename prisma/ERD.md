@@ -29,6 +29,7 @@ erDiagram
   String email UK
   String phoneNumber "nullable"
   DateTime joiningDate "nullable"
+  Boolean isActive
   String departmentId FK
   String designationId FK "nullable"
   DateTime createdAt
@@ -179,6 +180,7 @@ Properties as follows:
 - `email`:
 - `phoneNumber`:
 - `joiningDate`:
+- `isActive`:
 - `departmentId`:
 - `designationId`:
 - `createdAt`:
