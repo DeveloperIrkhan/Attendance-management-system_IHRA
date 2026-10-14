@@ -23,28 +23,30 @@ export default async function EditEmployeePage({
   if (!employee) notFound();
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Edit employee</h1>
-      <EmployeeForm
-        isEdit
-        action={updateEmployeeAction}
-        departments={departments.map((d) => ({ id: d.id, label: d.name }))}
-        designations={designations.map((d) => ({ id: d.id, label: d.title }))}
-        initial={{
-          id: employee.id,
-          employeeCode: employee.employeeCode,
-          biometricId: employee.biometricId ?? "",
-          name: employee.name,
-          email: employee.email,
-          phoneNumber: employee.phoneNumber ?? "",
-          joiningDate: employee.joiningDate
-            ? employee.joiningDate.toISOString().slice(0, 10)
-            : "",
-          departmentId: employee.departmentId,
-          designationId: employee.designationId ?? "",
-          isActive: employee.isActive,
-        }}
-      />
+    <div className="w-full h-2/3 flex justify-center items-center">
+      <div className=" bg-white p-3 rounded-md shadow-lg">
+        <h1 className="text-xl font-semibold text-green-800">Edit employee</h1>
+        <EmployeeForm
+          isEdit
+          action={updateEmployeeAction}
+          departments={departments.map((d) => ({ id: d.id, label: d.name }))}
+          designations={designations.map((d) => ({ id: d.id, label: d.title }))}
+          initial={{
+            id: employee.id,
+            employeeCode: employee.employeeCode,
+            biometricId: employee.biometricId ?? "",
+            name: employee.name,
+            email: employee.email,
+            phoneNumber: employee.phoneNumber ?? "",
+            joiningDate: employee.joiningDate
+              ? employee.joiningDate.toISOString().slice(0, 10)
+              : "",
+            departmentId: employee.departmentId,
+            designationId: employee.designationId ?? "",
+            isActive: employee.isActive,
+          }}
+        />
+      </div>
     </div>
   );
 }

@@ -8,7 +8,7 @@ const Spinner = () => {
     >
       <div className="flex flex-col justify-center relative items-center text-2xl">
         <Image
-          src={"./tube-spinner.svg"}
+          src={"/spinner.svg"}
           width={200}
           height={200}
           alt="Loading"

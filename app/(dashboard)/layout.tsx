@@ -6,7 +6,7 @@ import Spinner from "@/components/Spinner";
 import { VscGraph } from "react-icons/vsc";
 import Navigation from "@/components/Navigation";
 import SideMenu from "@/components/SideMenu/SideMenu";
-import { Calendar } from "lucide-react";
+import { Calendar, HistoryIcon } from "lucide-react";
 import { FaFileExcel, FaHome } from "react-icons/fa";
 import { PiUsersFill } from "react-icons/pi";
 import { RiBuilding4Fill } from "react-icons/ri";
@@ -79,10 +79,21 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
     },
     {
       icon: <FaFileExcel size={24} />,
-      text: "Excel Upload",
-      alert: "Excel Upload",
-      href: "/",
+      text: "Excel Import",
+      alert: "Excel Import",
+      href: "/attendance/import",
       show: hasPermission(user, PERMISSIONS.ATTENDANCE_IMPORT),
+    },
+    {
+      icon: <HistoryIcon size={24} />,
+      text: "Imports",
+      alert: "Imports",
+      href: "/attendance/imports",
+      show: hasPermission(
+        user,
+        PERMISSIONS.ATTENDANCE_IMPORT,
+        PERMISSIONS.ATTENDANCE_VIEW,
+      ),
     },
 
     {
@@ -100,7 +111,7 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen  overflow-hidden">
         <SideMenu links={NavagtionLinks} />
         <div className="flex-1">
-          <main className="p-6">{children}</main>
+          <main className="p-6 bg-slate-100 h-screen">{children}</main>
         </div>
       </div>
     </div>

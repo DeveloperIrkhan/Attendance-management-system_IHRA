@@ -60,6 +60,7 @@ erDiagram
   Int totalRows
   Int successfulRows
   Int failedRows
+  String uploadedById FK "nullable"
   DateTime createdAt
   DateTime updatedAt
 }
@@ -76,6 +77,8 @@ erDiagram
   String sourceWorkTime "nullable"
   String sourceAttTime "nullable"
   String sourcePunches "nullable"
+  String sourceBiometricId "nullable"
+  String sourceEmployeeName "nullable"
   DateTime createdAt
 }
 "ImportError" {
@@ -140,6 +143,7 @@ erDiagram
 "Employee" }o--|| "Department" : department
 "Employee" }o--o| "Designation" : designation
 "Attendance" }o--|| "Employee" : employee
+"ImportBatch" }o--o| "User" : uploadedBy
 "ImportedAttendanceRow" }o--|| "ImportBatch" : importBatch
 "ImportedAttendanceRow" }o--o| "Employee" : employee
 "ImportError" }o--|| "ImportBatch" : importBatch
@@ -217,6 +221,7 @@ Properties as follows:
 - `totalRows`:
 - `successfulRows`:
 - `failedRows`:
+- `uploadedById`:
 - `createdAt`:
 - `updatedAt`:
 
@@ -236,6 +241,8 @@ Properties as follows:
 - `sourceWorkTime`:
 - `sourceAttTime`:
 - `sourcePunches`:
+- `sourceBiometricId`:
+- `sourceEmployeeName`:
 - `createdAt`:
 
 ### `ImportError`

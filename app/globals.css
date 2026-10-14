@@ -94,6 +94,9 @@ input {
     duration-300 focus:outline-none 
     focus:ring-1 focus:ring-green-600;
   }
+  .bordering{
+    @apply border border-green-600 hover:border-green-800 duration-300 transition-colors
+  }
 }
 @layer utilities {
   .text-balance {

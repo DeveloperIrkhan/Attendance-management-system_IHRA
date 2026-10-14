@@ -24,7 +24,7 @@ export const MenuItems = ({ icon, text, href, alert }: MenuItemProps) => {
       className={`relative group flex items-center p-2 m-0 cursor-pointer 
       transition-all duration-300 font-medium  hover:bg-gray-200 
       hover:text-black hover:shadow-md ${!expanded && "flex justify-center items-center p-4"}
-      ${pathname === href ? "bg-gray-200 text-black" : "text-white"}`}
+      ${pathname === href ? "bg-green-800 text-white" : "text-white"}`}
       onClick={() => setOpen((prev) => !prev)}>
       {icon}
 

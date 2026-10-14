@@ -40,7 +40,7 @@ export default function SimpleForm({
   }
 
   return (
-    <form ref={formRef} onSubmit={onSubmit} className="space-y-3">
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-3 w-full">
       {Object.entries(hidden ?? {}).map(([k, v]) => (
         <input key={k} type="hidden" name={k} value={v} />
       ))}

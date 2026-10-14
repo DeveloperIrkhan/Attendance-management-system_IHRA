@@ -27,7 +27,7 @@ export default async function EmployeesPage({
 
   const [result, departments] = await Promise.all([
     listEmployees({
-      q: sp.q?.trim() || undefined,
+      textSearch: sp.q?.trim() || undefined,
       departmentId: sp.department || undefined,
       status,
       page: Number(sp.page) || 1,
@@ -48,42 +48,67 @@ export default async function EmployeesPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">
-          Employees <span className="text-sm font-normal text-zinc-500">({result.total})</span>
+          Employees{" "}
+          <span className="text-sm font-normal text-zinc-500">
+            ({result.total})
+          </span>
         </h1>
         {canManage && (
-          <Link href="/employees/new" className="rounded bg-black px-4 py-2 text-sm text-white">
+          <Link
+            href="/employees/new"
+            className="rounded bg-green-600 hover:bg-green-900 px-4 py-2 text-sm text-white hoverEffect"
+          >
             Add employee
           </Link>
         )}
       </div>
 
-      <form method="get" className="flex flex-wrap gap-2 rounded border bg-white p-3">
+      <form
+        method="get"
+        className="flex flex-wrap gap-2 bg-white shadow-xl rounded-md px-3 py-4"
+      >
         <input
           name="q"
           defaultValue={sp.q ?? ""}
           placeholder="Search name, code, email, biometric ID"
-          className="min-w-64 flex-1 rounded border px-3 py-2 text-sm"
+          className="min-w-64 flex-1 custom-input"
         />
-        <select name="department" defaultValue={sp.department ?? ""} className="rounded border px-3 py-2 text-sm">
+        <select
+          name="department"
+          defaultValue={sp.department ?? ""}
+          className="rounded bordering px-3 py-2 text-sm"
+        >
           <option value="">All departments</option>
           {departments.map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
           ))}
         </select>
-        <select name="status" defaultValue={status ?? ""} className="rounded border px-3 py-2 text-sm">
+        <select
+          name="status"
+          defaultValue={status ?? ""}
+          className="rounded bordering px-3 py-2 text-sm"
+        >
           <option value="">All statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
-        <button type="submit" className="rounded border px-4 py-2 text-sm hover:bg-zinc-100">
+        <button
+          type="submit"
+          className="rounded bordering px-4 py-2 text-sm bg-green-600  hover:bg-green-800 text-white"
+        >
           Filter
         </button>
-        <Link href="/employees" className="px-2 py-2 text-sm text-zinc-500 underline">
+        <Link
+          href="/employees"
+          className="px-2 py-2 text-sm text-zinc-500 underline"
+        >
           Reset
         </Link>
       </form>
 
-      <div className="overflow-x-auto rounded border bg-white">
+      <div className="overflow-x-auto bg-white rounded-md shadow-md p-4">
         <table className="w-full text-sm">
           <thead className="bg-zinc-100 text-left">
             <tr>
@@ -99,7 +124,10 @@ export default async function EmployeesPage({
           <tbody>
             {result.items.length === 0 && (
               <tr>
-                <td colSpan={canManage ? 7 : 6} className="p-4 text-center text-zinc-500">
+                <td
+                  colSpan={canManage ? 7 : 6}
+                  className="p-4 text-center text-zinc-500"
+                >
                   No employees found.
                 </td>
               </tr>
@@ -117,7 +145,9 @@ export default async function EmployeesPage({
                 <td className="p-3">
                   <span
                     className={`rounded px-2 py-0.5 text-xs ${
-                      e.isActive ? "bg-green-100 text-green-800" : "bg-zinc-200 text-zinc-700"
+                      e.isActive
+                        ? "bg-green-100 text-green-800"
+                        : "bg-zinc-200 text-zinc-700"
                     }`}
                   >
                     {e.isActive ? "Active" : "Inactive"}
@@ -125,7 +155,10 @@ export default async function EmployeesPage({
                 </td>
                 {canManage && (
                   <td className="space-x-2 p-3 whitespace-nowrap">
-                    <Link href={`/employees/${e.id}/edit`} className="rounded border px-2 py-1 text-xs hover:bg-zinc-100">
+                    <Link
+                      href={`/employees/${e.id}/edit`}
+                      className="rounded border px-2 py-1 text-xs hover:bg-zinc-100"
+                    >
                       Edit
                     </Link>
                     <RowActionForm
@@ -133,7 +166,9 @@ export default async function EmployeesPage({
                       id={e.id}
                       label={e.isActive ? "Deactivate" : "Activate"}
                       fields={{ active: String(!e.isActive) }}
-                      confirmMessage={e.isActive ? `Deactivate ${e.name}?` : undefined}
+                      confirmMessage={
+                        e.isActive ? `Deactivate ${e.name}?` : undefined
+                      }
                     />
                   </td>
                 )}
@@ -150,12 +185,18 @@ export default async function EmployeesPage({
           </span>
           <div className="space-x-2">
             {result.page > 1 && (
-              <Link href={pageHref(result.page - 1)} className="rounded border px-3 py-1 hover:bg-zinc-100">
+              <Link
+                href={pageHref(result.page - 1)}
+                className="rounded border px-3 py-1 hover:bg-zinc-100"
+              >
                 Previous
               </Link>
             )}
             {result.page < result.pageCount && (
-              <Link href={pageHref(result.page + 1)} className="rounded border px-3 py-1 hover:bg-zinc-100">
+              <Link
+                href={pageHref(result.page + 1)}
+                className="rounded border px-3 py-1 hover:bg-zinc-100"
+              >
                 Next
               </Link>
             )}

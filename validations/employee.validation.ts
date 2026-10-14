@@ -1,5 +1,5 @@
 import { z } from "zod";
-
+import { normalizeBiometricId } from "@/lib/attendance/biometric-id";
 const optionalText = (max: number) =>
   z
     .string()
@@ -14,7 +14,8 @@ export const employeeSchema = z.object({
     .string()
     .trim()
     .min(1, "Biometric ID (AC-No.) is required")
-    .max(30),
+    .max(30)
+    .transform(normalizeBiometricId),
   name: z
     .string()
     .trim()

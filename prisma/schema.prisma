@@ -94,11 +94,17 @@ model ImportBatch {
   successfulRows Int @default(0)
   failedRows     Int @default(0)
 
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
+
   importedRows ImportedAttendanceRow[]
   errors       ImportError[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([fileHash])
+  @@index([year, month])
 }
 
 model ImportedAttendanceRow {
@@ -109,16 +115,17 @@ model ImportedAttendanceRow {
   sourceRowNumber Int
   rawData         Json
 
-  attendanceDate DateTime? @db.Date
-  sourceClockIn  String?
-  sourceClockOut String?
-  sourceAbsent   Boolean?
-  sourceWorkTime String?
-  sourceAttTime  String?
-  sourcePunches  String?
-
-  importBatch ImportBatch @relation(fields: [importBatchId], references: [id])
-  employee    Employee?   @relation(fields: [employeeId], references: [id])
+  attendanceDate     DateTime?   @db.Date
+  sourceClockIn      String?
+  sourceClockOut     String?
+  sourceAbsent       Boolean?
+  sourceWorkTime     String?
+  sourceAttTime      String?
+  sourcePunches      String?
+  sourceBiometricId  String?
+  sourceEmployeeName String?
+  importBatch        ImportBatch @relation(fields: [importBatchId], references: [id])
+  employee           Employee?   @relation(fields: [employeeId], references: [id])
 
   createdAt DateTime @default(now())
 
@@ -206,9 +213,10 @@ model User {
   role     Role      @relation(fields: [roleId], references: [id])
   employee Employee? @relation(fields: [employeeId], references: [id])
 
-  lastLoginAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  lastLoginAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  importBatches ImportBatch[]
 }
 
 ////////////////////////////enums////////////////////////////
