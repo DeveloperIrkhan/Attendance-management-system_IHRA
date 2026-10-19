@@ -14,7 +14,11 @@ type SearchParams = Promise<{ month?: string; department?: string }>;
 const hours = (minutes: number) => (minutes ? formatMinutes(minutes) : "-");
 const num = (n: number) => (n ? String(n) : "-");
 
-export default async function MonthlySummaryPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function MonthlySummaryPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
   await requirePermission(PERMISSIONS.ATTENDANCE_VIEW);
   const sp = await searchParams;
 
@@ -50,34 +54,67 @@ export default async function MonthlySummaryPage({ searchParams }: { searchParam
           Monthly summary: {MONTHS[month - 1]} {year}
         </h1>
         <div className="space-x-2 text-sm">
-          <Link href={link(prev.y, prev.m)} className="rounded border px-3 py-1 hover:bg-zinc-100">Previous month</Link>
-          <Link href={link(next.y, next.m)} className="rounded border px-3 py-1 hover:bg-zinc-100">Next month</Link>
+          <Link
+            href={link(prev.y, prev.m)}
+            className="rounded-md border px-3 py-1 bg-green-800 text-white hoverEffect hover:text-green-800 hover:bg-white"
+          >
+            Previous month
+          </Link>
+          <Link
+            href={link(next.y, next.m)}
+            className="rounded-md border px-3 py-1 bg-green-800 text-white hoverEffect hover:text-green-800 hover:bg-white"
+          >
+            Next month
+          </Link>
         </div>
       </div>
 
-      <form method="get" className="flex flex-wrap gap-2 rounded border bg-white p-3">
-        <input type="month" name="month" defaultValue={monthParam(year, month)} className="rounded border px-3 py-2 text-sm" />
-        <select name="department" defaultValue={departmentId ?? ""} className="rounded border px-3 py-2 text-sm">
+      <form
+        method="get"
+        className="flex flex-wrap gap-2 rounded-md shadow-lg bg-white p-3"
+      >
+        <input
+          type="month"
+          name="month"
+          defaultValue={monthParam(year, month)}
+          className="rounded border px-3 py-2 text-sm"
+        />
+        <select
+          name="department"
+          defaultValue={departmentId ?? ""}
+          className="rounded border px-3 py-2 text-sm"
+        >
           <option value="">All departments</option>
           {departments.map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
           ))}
         </select>
-        <button type="submit" className="rounded border px-4 py-2 text-sm hover:bg-zinc-100">Show</button>
+        <button
+          type="submit"
+          className="rounded-md border px-3 py-1 bg-green-800 text-white hoverEffect hover:text-green-800 hover:bg-white"
+        >
+          Show
+        </button>
       </form>
 
       {totals.missingPunch > 0 && (
-        <div className="rounded border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
-          {totals.missingPunch} day(s) still have a missing punch and count as absent until HR corrects them.{" "}
-          <Link href={`/attendance/review?month=${monthParam(year, month)}`} className="underline">
+        <div className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-900">
+          {totals.missingPunch} day(s) still have a missing punch and count as
+          absent until HR corrects them.{" "}
+          <Link
+            href={`/attendance/review?month=${monthParam(year, month)}`}
+            className="underline"
+          >
             Review them
           </Link>
         </div>
       )}
 
       <ScrollTable>
-        <table className="w-full min-w-max text-sm">
-          <thead className="sticky top-0 z-10 bg-zinc-100 text-left">
+        <table className="w-full min-w-max text-sm shadow-md rounded-md p-2">
+          <thead className="sticky top-0 z-10 bg-green-800 text-white text-left">
             <tr>
               <th className="p-3">Code</th>
               <th className="p-3">Name</th>
@@ -97,7 +134,9 @@ export default async function MonthlySummaryPage({ searchParams }: { searchParam
           <tbody className="whitespace-nowrap">
             {rows.length === 0 && (
               <tr>
-                <td colSpan={13} className="p-4 text-center text-zinc-500">No employees found.</td>
+                <td colSpan={13} className="p-4 text-center text-zinc-500">
+                  No employees found.
+                </td>
               </tr>
             )}
             {rows.map((r) => (
@@ -105,7 +144,11 @@ export default async function MonthlySummaryPage({ searchParams }: { searchParam
                 <td className="p-3">{r.code}</td>
                 <td className="p-3 font-medium">
                   {r.name}
-                  {!r.isActive && <span className="ml-2 text-xs text-zinc-500">(inactive)</span>}
+                  {!r.isActive && (
+                    <span className="ml-2 text-xs text-zinc-500">
+                      (inactive)
+                    </span>
+                  )}
                 </td>
                 <td className="p-3">{r.department}</td>
                 {r.hasData ? (
@@ -118,19 +161,25 @@ export default async function MonthlySummaryPage({ searchParams }: { searchParam
                     <td className="p-3 text-right">{num(r.absent)}</td>
                     <td className="p-3 text-right">{num(r.onLeave)}</td>
                     <td className="p-3 text-right">{num(r.lateMinutes)}</td>
-                    <td className="p-3 text-right">{hours(r.overtimeMinutes)}</td>
-                    <td className="p-3 text-right">{hours(r.workedMinutes)}</td>
+                    <td className="p-3 text-right">
+                      {hours(r.overtimeMinutes)} hrs
+                    </td>
+                    <td className="p-3 text-right">{hours(r.workedMinutes)} hrs</td>
                   </>
                 ) : (
-                  <td colSpan={10} className="p-3 text-center text-zinc-400">No attendance data for this month</td>
+                  <td colSpan={10} className="p-3 text-center text-zinc-400">
+                    No attendance data for this month
+                  </td>
                 )}
               </tr>
             ))}
           </tbody>
           {rows.length > 0 && (
-            <tfoot className="sticky bottom-0 bg-zinc-100 font-medium">
+            <tfoot className="sticky bottom-0 bg-green-100 font-medium">
               <tr>
-                <td className="p-3" colSpan={3}>Total</td>
+                <td className="p-3" colSpan={3}>
+                  Total
+                </td>
                 <td className="p-3 text-right">{totals.workingDays}</td>
                 <td className="p-3 text-right">{totals.present}</td>
                 <td className="p-3 text-right">{totals.shortLeave}</td>
@@ -139,8 +188,12 @@ export default async function MonthlySummaryPage({ searchParams }: { searchParam
                 <td className="p-3 text-right">{totals.absent}</td>
                 <td className="p-3 text-right">{totals.onLeave}</td>
                 <td className="p-3 text-right">{totals.lateMinutes}</td>
-                <td className="p-3 text-right">{hours(totals.overtimeMinutes)}</td>
-                <td className="p-3 text-right">{hours(totals.workedMinutes)}</td>
+                <td className="p-3 text-right">
+                  {hours(totals.overtimeMinutes)}
+                </td>
+                <td className="p-3 text-right">
+                  {hours(totals.workedMinutes)}
+                </td>
               </tr>
             </tfoot>
           )}
