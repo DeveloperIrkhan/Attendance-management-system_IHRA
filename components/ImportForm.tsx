@@ -38,7 +38,10 @@ export default function ImportForm({
 
     setLoading(true);
     try {
-      const res = await fetch("/api/attendance/import", { method: "POST", body: fd });
+      const res = await fetch("/api/attendance/import", {
+        method: "POST",
+        body: fd,
+      });
       const data = await res.json();
       if (data.batchId) {
         setResult(data as ImportSummary);
@@ -56,13 +59,22 @@ export default function ImportForm({
 
   return (
     <div className="max-w-2xl space-y-4">
-      <form onSubmit={onSubmit} className="space-y-4 rounded-md shadow-lg bg-white p-6">
+      <form
+        onSubmit={onSubmit}
+        className="space-y-4 rounded-md shadow-lg bg-white p-6"
+      >
         <div className="flex flex-wrap gap-4">
           <div className="space-y-1">
             <label className="text-sm font-medium">Month</label>
-            <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className={`${field} block`}>
+            <select
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+              className={`${field} block`}
+            >
               {MONTHS.map((m, i) => (
-                <option key={m} value={i + 1}>{m}</option>
+                <option key={m} value={i + 1}>
+                  {m}
+                </option>
               ))}
             </select>
           </div>
@@ -80,11 +92,22 @@ export default function ImportForm({
         </div>
 
         <div className="w-full border p-4 border-dashed border-green-800 rounded-md h-1/2">
-          <label className="text-sm font-medium">Attendance file (.xlsx or .xls, max 10 MB)</label>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls" className="block w-full text-sm" />
+          <label className="text-sm font-medium">
+            Attendance file (.xlsx or .xls, max 10 MB)
+          </label>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="block w-full text-sm"
+          />
         </div>
 
-        {error && <div className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
+        {error && (
+          <div className="rounded bg-red-50 p-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         <button
           type="submit"
@@ -103,33 +126,60 @@ export default function ImportForm({
           </div>
           <div className="grid grid-cols-3 gap-3 text-center text-sm">
             <div className="rounded bg-zinc-50 p-3">
-              <div className="text-xl font-semibold">{result.totalRows}</div>Total rows
+              <div className="text-xl font-semibold">{result.totalRows}</div>
+              Total rows
             </div>
             <div className="rounded bg-green-50 p-3">
-              <div className="text-xl font-semibold">{result.successfulRows}</div>Matched
+              <div className="text-xl font-semibold">
+                {result.successfulRows}
+              </div>
+              Matched
             </div>
             <div className="rounded bg-red-50 p-3">
-              <div className="text-xl font-semibold">{result.failedRows}</div>Need attention
+              <div className="text-xl font-semibold">{result.failedRows}</div>
+              Need attention
             </div>
           </div>
 
           {result.unmatched.length > 0 && (
             <div className="text-sm">
-              <p className="mb-1 font-medium">Biometric IDs with no matching employee:</p>
+              <p className="mb-1 font-medium">
+                Biometric IDs with no matching employee:
+              </p>
               <ul className="list-disc pl-5 text-zinc-700">
                 {result.unmatched.slice(0, 10).map((u) => (
                   <li key={u.biometricId}>
-                    {u.biometricId}{u.name ? ` (${u.name})` : ""}, {u.rows} row(s)
+                    {u.biometricId}
+                    {u.name ? ` (${u.name})` : ""}, {u.rows} row(s)
                   </li>
                 ))}
               </ul>
               {result.unmatched.length > 10 && (
-                <p className="text-zinc-500">...and {result.unmatched.length - 10} more.</p>
+                <p className="text-zinc-500">
+                  ...and {result.unmatched.length - 10} more.
+                </p>
               )}
             </div>
           )}
-
-          <Link href={`/attendance/imports/${result.batchId}`} className="inline-block text-sm underline">
+          {result.processing && (
+            <p className="text-sm text-zinc-700">
+              Attendance processed for {result.processing.processed} days
+              {result.processing.byStatus.INCOMPLETE
+                ? `, ${result.processing.byStatus.INCOMPLETE} with a missing punch (HR review needed)`
+                : ""}
+              .{" "}
+              <Link href="/attendance/daily" className="underline">
+                View daily attendance
+              </Link>
+            </p>
+          )}
+          {result.processingError && (
+            <p className="text-sm text-red-700">{result.processingError}</p>
+          )}
+          <Link
+            href={`/attendance/imports/${result.batchId}`}
+            className="inline-block text-sm underline"
+          >
             View batch details
           </Link>
         </div>

@@ -47,8 +47,42 @@ erDiagram
   Int overtimeMinutes
   AttendanceStatus status
   String remarks "nullable"
+  String punches "nullable"
+  String sourceBatchId "nullable"
+  Boolean isManual
+  String editedById "nullable"
+  DateTime editedAt "nullable"
+  String editReason "nullable"
   DateTime createdAt
   DateTime updatedAt
+}
+"AttendanceSettings" {
+  String id PK
+  String shiftStart
+  String shiftEnd
+  Int graceMinutes
+  Int halfDayAfterMinutes
+  Int duplicatePunchMinutes
+  String earliestPunch
+  String latestPunch
+  Int overtimeMinMinutes
+  Boolean offDayWorkIsOvertime
+  Int defaultWeeklyOffDays
+  String updatedById "nullable"
+  DateTime updatedAt
+}
+"MonthlyOffDays" {
+  String id PK
+  Int year
+  Int month
+  Int weeklyOffDays
+  DateTime updatedAt
+}
+"Holiday" {
+  String id PK
+  DateTime date UK
+  String title
+  DateTime createdAt
 }
 "ImportBatch" {
   String id PK
@@ -60,6 +94,7 @@ erDiagram
   Int totalRows
   Int successfulRows
   Int failedRows
+  DateTime processedAt "nullable"
   String uploadedById FK "nullable"
   DateTime createdAt
   DateTime updatedAt
@@ -205,8 +240,51 @@ Properties as follows:
 - `overtimeMinutes`:
 - `status`:
 - `remarks`:
+- `punches`:
+- `sourceBatchId`:
+- `isManual`:
+- `editedById`:
+- `editedAt`:
+- `editReason`:
 - `createdAt`:
 - `updatedAt`:
+
+### `AttendanceSettings`
+
+Properties as follows:
+
+- `id`:
+- `shiftStart`:
+- `shiftEnd`:
+- `graceMinutes`:
+- `halfDayAfterMinutes`:
+- `duplicatePunchMinutes`:
+- `earliestPunch`:
+- `latestPunch`:
+- `overtimeMinMinutes`:
+- `offDayWorkIsOvertime`:
+- `defaultWeeklyOffDays`:
+- `updatedById`:
+- `updatedAt`:
+
+### `MonthlyOffDays`
+
+Properties as follows:
+
+- `id`:
+- `year`:
+- `month`:
+- `weeklyOffDays`:
+- `updatedAt`:
+
+### `Holiday`
+
+Properties as follows:
+
+- `id`:
+- `date`:
+- `title`:
+- `createdAt`:
 
 ### `ImportBatch`
 
@@ -221,6 +299,7 @@ Properties as follows:
 - `totalRows`:
 - `successfulRows`:
 - `failedRows`:
+- `processedAt`:
 - `uploadedById`:
 - `createdAt`:
 - `updatedAt`:

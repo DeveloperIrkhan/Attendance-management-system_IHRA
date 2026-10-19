@@ -26,7 +26,7 @@ export const SidebarContext = createContext<SidebarContextType>({
 });
 
 const SideMenu = ({ links }: NavigationProps) => {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -44,7 +44,7 @@ const SideMenu = ({ links }: NavigationProps) => {
   }, []);
   return (
     <aside ref={ref} className="h-screen relative">
-      <nav className="h-full flex flex-col bg-green-600 shadow-md">
+      <nav className="h-full flex flex-col bg-green-800 shadow-md">
         <div className="p-4 pb-2 flex items-center justify-between gap-2 border-b border-white">
           {expanded && (
             <Link href={"/"} className="flex items-start flex-col">
@@ -56,7 +56,7 @@ const SideMenu = ({ links }: NavigationProps) => {
           )}
           <button
             onClick={() => setExpanded((prev) => !prev)}
-            className="p-2 rounded-full bg-green-900 hover:bg-green-700 text-white transition"
+            className="p-2 rounded-full bg-white hover:bg-slate-200 text-green-800 transition"
           >
             {expanded ? <IoIosArrowBack /> : <IoIosArrowForward />}
           </button>
@@ -83,7 +83,7 @@ const SideMenu = ({ links }: NavigationProps) => {
               <Link
                 href="/auth/profile"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-100 hover:text-green-600 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-100 hover:text-green-800 transition-colors"
               >
                 <User className="w-4 h-4" /> My Profile
               </Link>
@@ -91,7 +91,7 @@ const SideMenu = ({ links }: NavigationProps) => {
               <Link
                 href="/auth/change-password"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-100 hover:text-green-600 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-100 hover:text-green-800 transition-colors"
               >
                 <KeyRound className="w-4 h-4" /> Change Password
               </Link>

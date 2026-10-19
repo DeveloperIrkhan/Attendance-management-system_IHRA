@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import LogoutMenu from "@/components/LogoutMenu";
+import Image from "next/image";
 
 type NavigationLink = {
   href: string;
@@ -32,9 +32,16 @@ export default function Navigation({ user }: NavigationProps) {
   return (
     <>
       {/* Desktop navigation */}
-      <header className="hidden md:flex items-center justify-between gap-4 bg-green-600 px-6 py-3 text-white shadow-md">
+      <header className="hidden md:flex items-center justify-between gap-4 bg-slate-200 px-6 py-3 text-white shadow-md">
         <nav className="flex items-center gap-5 w-full">
-          <span className="font-semibold tracking-widest text-xl w-full text-center">
+          <Image
+            alt="logo"
+            src={"/logo.png"}
+            width={100}
+            height={200}
+            className="w-15 h-15"
+          />
+          <span className="font-semibold tracking-widest text-xl w-full text-green-800">
             Islamabad Healthcare Regulatory Authority (IHRA) Attendance System
           </span>
 
@@ -53,22 +60,23 @@ export default function Navigation({ user }: NavigationProps) {
       </header>
 
       {/* Mobile navigation */}
-      <header className="md:hidden border-b bg-green-600 text-white shadow-md">
+      <header className="md:hidden border-b bg-green-800 text-white shadow-md">
         <div className="flex items-center justify-between px-4 py-3">
-          <span className="font-semibold">Attendance System</span>
-
+          <span className="font-semibold text-xl">
+            IHRA's Attendance System
+          </span>
           <button
             type="button"
             aria-label={open ? "Close navigation menu" : "Open navigation menu"}
             aria-expanded={open}
             onClick={() => setOpen((previous) => !previous)}
-            className="rounded w-9 h-9 flex justify-center items-center p-2 text-2xl hover:bg-green-700"
+            className="rounded w-9 h-9 flex justify-center items-center p-2 text-2xl hover:bg-green-800"
           >
             {open ? "✕" : "☰"}
           </button>
         </div>
 
-        {open && (
+        {/* {open && (
           <nav className="flex flex-col gap-1 px-4 pb-4">
             {links.map((link) => (
               <Link
@@ -85,7 +93,7 @@ export default function Navigation({ user }: NavigationProps) {
               <LogoutMenu user={user} />
             </div>
           </nav>
-        )}
+        )} */}
       </header>
     </>
   );

@@ -1,17 +1,20 @@
 import { Suspense } from "react";
-import Link from "next/link";
+import { BsCalendar2Month } from "react-icons/bs";
 import { hasPermission, requireUser } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
+import { TfiStamp } from "react-icons/tfi";
+
 import Spinner from "@/components/Spinner";
 import { VscGraph } from "react-icons/vsc";
 import Navigation from "@/components/Navigation";
 import SideMenu from "@/components/SideMenu/SideMenu";
-import { Calendar, HistoryIcon } from "lucide-react";
+import { HistoryIcon } from "lucide-react";
 import { FaFileExcel, FaHome } from "react-icons/fa";
-import { PiUsersFill } from "react-icons/pi";
+import { PiGearFill, PiUsersFill } from "react-icons/pi";
 import { RiBuilding4Fill } from "react-icons/ri";
 import { FaMedal } from "react-icons/fa";
-import { FaUserCheck } from "react-icons/fa";
+import { FaListCheck } from "react-icons/fa6";
+import { SlCalender } from "react-icons/sl";
 
 async function AuthShell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -64,18 +67,18 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
       show: hasPermission(user, PERMISSIONS.DEPARTMENTS_MANAGE),
     },
     {
-      icon: <FaUserCheck size={24} />,
-      text: "Attendance",
-      alert: "Attendance",
-      href: "/attendance",
-      show: hasPermission(user, PERMISSIONS.ATTENDANCE_IMPORT),
+      icon: <BsCalendar2Month size={24} />,
+      text: "Monthly Summary",
+      alert: "Monthly Summary",
+      href: "/attendance/monthly",
+      show: hasPermission(user, PERMISSIONS.ATTENDANCE_VIEW),
     },
     {
-      icon: <Calendar size={24} />,
-      text: "Leaves Management",
-      alert: "Leaves Management",
-      href: "/leaves-management",
-      show: hasPermission(user, PERMISSIONS.LEAVES_MANAGE),
+      icon: <TfiStamp size={24} />,
+      text: "Missing punches",
+      alert: "Missing punches",
+      href: "/attendance/review",
+      show: hasPermission(user, PERMISSIONS.ATTENDANCE_EDIT),
     },
     {
       icon: <FaFileExcel size={24} />,
@@ -86,8 +89,8 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
     },
     {
       icon: <HistoryIcon size={24} />,
-      text: "Imports",
-      alert: "Imports",
+      text: "All imports",
+      alert: "upload history",
       href: "/attendance/imports",
       show: hasPermission(
         user,
@@ -102,6 +105,27 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
       alert: "Reports",
       href: "/reports",
       show: hasPermission(user, PERMISSIONS.ATTENDANCE_IMPORT),
+    },
+    {
+      icon: <SlCalender size={24} />,
+      text: "Calendar",
+      alert: "Calendar",
+      href: "/attendance/calendar",
+      show: hasPermission(user, PERMISSIONS.ATTENDANCE_SETTINGS),
+    },
+    {
+      icon: <FaListCheck size={24} />,
+      text: "Daily attendance",
+      alert: "Daily attendance",
+      href: "/attendance/daily",
+      show: hasPermission(user, PERMISSIONS.ATTENDANCE_SETTINGS),
+    },
+    {
+      icon: <PiGearFill size={24} />,
+      text: "Rules",
+      alert: "Rules & Settings",
+      href: "/attendance/settings",
+      show: hasPermission(user, PERMISSIONS.ATTENDANCE_VIEW),
     },
   ].filter((l) => l.show);
 

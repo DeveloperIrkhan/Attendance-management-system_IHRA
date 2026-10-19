@@ -70,8 +70,14 @@ model Attendance {
   earlyLeaveMinutes Int @default(0)
   overtimeMinutes   Int @default(0)
 
-  status  AttendanceStatus @default(INCOMPLETE)
-  remarks String?
+  status        AttendanceStatus @default(INCOMPLETE)
+  remarks       String?
+  punches       String?
+  sourceBatchId String?
+  isManual      Boolean          @default(false)
+  editedById    String?
+  editedAt      DateTime?
+  editReason    String?
 
   employee  Employee @relation(fields: [employeeId], references: [id])
   createdAt DateTime @default(now())
@@ -82,6 +88,39 @@ model Attendance {
   @@index([employeeId, date]) //This creates a composite index using two columns: employeeId and date.
 }
 
+model AttendanceSettings {
+  id                    String   @id @default("default")
+  shiftStart            String   @default("08:00")
+  shiftEnd              String   @default("16:00")
+  graceMinutes          Int      @default(15) // this is 15minutes for grace period. 
+  halfDayAfterMinutes   Int      @default(180)
+  duplicatePunchMinutes Int      @default(15)
+  earliestPunch         String   @default("07:00")
+  latestPunch           String   @default("22:00")
+  overtimeMinMinutes    Int      @default(0)
+  offDayWorkIsOvertime  Boolean  @default(false)
+  defaultWeeklyOffDays  Int[]    @default([5, 6, 0])
+  updatedById           String?
+  updatedAt             DateTime @updatedAt
+}
+
+model MonthlyOffDays {
+  id            String   @id @default(cuid())
+  year          Int
+  month         Int
+  weeklyOffDays Int[]
+  updatedAt     DateTime @updatedAt
+
+  @@unique([year, month])
+}
+
+model Holiday {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  title     String
+  createdAt DateTime @default(now())
+}
+
 model ImportBatch {
   id       String       @id @default(cuid())
   fileName String
@@ -90,12 +129,12 @@ model ImportBatch {
   year     Int
   status   ImportStatus @default(UPLOADED)
 
-  totalRows      Int @default(0)
-  successfulRows Int @default(0)
-  failedRows     Int @default(0)
-
-  uploadedById String?
-  uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
+  totalRows      Int       @default(0)
+  successfulRows Int       @default(0)
+  failedRows     Int       @default(0)
+  processedAt    DateTime?
+  uploadedById   String?
+  uploadedBy     User?     @relation(fields: [uploadedById], references: [id])
 
   importedRows ImportedAttendanceRow[]
   errors       ImportError[]
@@ -236,6 +275,7 @@ enum AttendanceStatus {
   HOLIDAY
   WEEKEND
   INCOMPLETE
+  SHORT_LEAVE
 }
 
 enum ImportStatus {

@@ -13,14 +13,14 @@ export default async function ImportHistoryPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Import history</h1>
-        <Link href="/attendance/import" className="rounded bg-black px-4 py-2 text-sm text-white">
+        <Link href="/attendance/import" className="rounded bg-green-700 hover:bg-green-800 hoverEffect shadow-md px-4 py-2 text-sm text-white">
           New import
         </Link>
       </div>
 
-      <div className="overflow-x-auto rounded border bg-white">
+      <div className="overflow-x-auto rounded p-3 shadow-lg bg-white">
         <table className="w-full text-sm">
-          <thead className="bg-zinc-100 text-left">
+          <thead className="bg-green-100 text-left">
             <tr>
               <th className="p-3">File</th>
               <th className="p-3">Period</th>

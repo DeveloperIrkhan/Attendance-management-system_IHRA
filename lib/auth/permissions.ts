@@ -7,6 +7,8 @@ export const PERMISSIONS = {
   ATTENDANCE_IMPORT: "attendance:import",
   ATTENDANCE_VIEW: "attendance:view",
   ATTENDANCE_VIEW_OWN: "attendance:view-own",
+  ATTENDANCE_SETTINGS: "attendance:settings",
+  ATTENDANCE_EDIT: "attendance:edit",
   LEAVES_MANAGE: "leaves:manage",
   REPORTS_VIEW: "reports:view",
   REPORTS_EXPORT: "reports:export",
@@ -41,7 +43,9 @@ export const SYSTEM_ROLES: {
   {
     name: "IT_OFFICER",
     description: "Uploads biometric attendance sheets",
-    permissions: ALL_PERMISSIONS,
+     permissions: [
+      P.EMPLOYEES_VIEW, P.ATTENDANCE_IMPORT, P.ATTENDANCE_VIEW, P.REPORTS_VIEW,
+    ],
   },
   {
     name: "EMPLOYEE",

@@ -8,6 +8,7 @@ type Field = {
   label: string;
   defaultValue?: string;
   required?: boolean;
+  type?: "text" | "email" | "date" | "number" | "password";
   placeholder?: string;
 };
 
@@ -26,7 +27,10 @@ export default function SimpleForm({
   hidden,
   resetOnSuccess,
 }: Props) {
-  const [state, formAction, pending] = useActionState(action, {} as ActionState);
+  const [state, formAction, pending] = useActionState(
+    action,
+    {} as ActionState,
+  );
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -46,7 +50,10 @@ export default function SimpleForm({
       ))}
       {fields.map((f) => (
         <div key={f.name} className="space-y-1">
-          <label className="text-sm font-medium" htmlFor={`${f.name}-${hidden?.id ?? "new"}`}>
+          <label
+            className="text-sm font-medium"
+            htmlFor={`${f.name}-${hidden?.id ?? "new"}`}
+          >
             {f.label}
           </label>
           <input
@@ -55,17 +62,19 @@ export default function SimpleForm({
             defaultValue={f.defaultValue}
             required={f.required}
             placeholder={f.placeholder}
-            className="w-full rounded border px-3 py-2"
+            className="w-full rounded custom-input px-3 py-2"
           />
         </div>
       ))}
       {state.error && (
-        <div className="rounded bg-red-50 p-2 text-sm text-red-700">{state.error}</div>
+        <div className="rounded bg-red-50 p-2 text-sm text-red-700">
+          {state.error}
+        </div>
       )}
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+        className="rounded-md cursor-pointer bg-green-700 hover:bg-green-800 hoverEffect px-4 py-2 text-sm text-white disabled:opacity-50"
       >
         {pending ? "Saving..." : submitLabel}
       </button>

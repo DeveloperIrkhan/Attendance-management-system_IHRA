@@ -4,9 +4,12 @@ export type ImportSummary = {
   totalRows: number;
   successfulRows: number;
   failedRows: number;
-  unmatched: {
-    biometricId: string;
-    name: string | null;
-    rows: number;
-  }[];
+  unmatched: { biometricId: string; name: string | null; rows: number }[];
+  processing?: ProcessingInfo | null;
+  processingError?: string;
+};
+
+export type ProcessingInfo = {
+  processed: number;
+  byStatus: Record<string, number>;
 };

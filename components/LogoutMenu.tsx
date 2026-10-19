@@ -63,7 +63,7 @@ const LogoutMenu = ({user}:IUser) => {
       onClick={() => setOpen((v)=>!v) }
       className="rounded-full p-2 flex justify-center cursor-pointer items-center gap-x-4 hoverEffect"
       >
-      <div className="bg-white border border-white group-hover:border-white text-green-600 group-hover:text-white duration-300 group-hover:bg-green-600 w-9 h-9 rounded-full flex items-center justify-center text-md font-bold uppercase">
+      <div className="bg-green-800 text-white border border-green-800 group-hover:text-green-800 duration-300 group-hover:bg-white group-hover:border-green-800 w-9 h-9 rounded-full flex items-center justify-center text-md font-bold uppercase">
           {user.fullName?.charAt(0)}
       </div>
 

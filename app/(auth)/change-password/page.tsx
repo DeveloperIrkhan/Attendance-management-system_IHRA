@@ -35,13 +35,13 @@ export default function ChangePasswordPage() {
     }
   }
 
-  const field = "w-full rounded border px-3 py-2";
+  const field = "w-full custom-input rounded border px-3 py-2";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 p-4">
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-sm space-y-4 rounded-lg border bg-white p-6 shadow-sm"
+        className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow-sm"
       >
         <h1 className="text-xl font-semibold">Change password</h1>
         {error && (
@@ -79,7 +79,7 @@ export default function ChangePasswordPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded bg-black py-2 text-white disabled:opacity-50"
+          className="w-full rounded bg-green-700 hover:bg-green-800 hoverEffect py-2 text-white disabled:opacity-50"
         >
           {loading ? "Saving..." : "Update password"}
         </button>

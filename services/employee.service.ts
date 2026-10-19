@@ -3,7 +3,7 @@ import { ServiceError } from "@/lib/action-state";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { EmployeeInput } from "@/validations/employee.validation";
 
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 70;
 
 export type EmployeeFilters = {
   textSearch?: string;

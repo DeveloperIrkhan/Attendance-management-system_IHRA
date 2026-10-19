@@ -4,17 +4,31 @@ import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { ServiceError } from "@/lib/action-state";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { ExcelFileError, parseAttendanceExcel } from "@/lib/attendance/excel-parse";
+import {
+  ExcelFileError,
+  parseAttendanceExcel,
+} from "@/lib/attendance/excel-parse";
 import { normalizeBiometricId } from "@/lib/attendance/biometric-id";
 import { MONTHS } from "@/lib/attendance/months";
-import type { ImportSummary } from "@/lib/attendance/import-types";
+import type {
+  ImportSummary,
+  ProcessingInfo,
+} from "@/lib/attendance/import-types";
+import { processBatch } from "@/services/attendance.service";
 
 const CHUNK = 1000;
 const MAX_ISSUES = 5000;
 const TX_OPTIONS = { timeout: 60_000, maxWait: 10_000 };
 
-type Issue = { rowNumber: number | null; columnName: string | null; message: string };
-type RowData = Omit<Prisma.ImportedAttendanceRowCreateManyInput, "importBatchId">;
+type Issue = {
+  rowNumber: number | null;
+  columnName: string | null;
+  message: string;
+};
+type RowData = Omit<
+  Prisma.ImportedAttendanceRowCreateManyInput,
+  "importBatchId"
+>;
 type Status = ImportSummary["status"];
 
 const fmt = (d: Date) => d.toISOString().slice(0, 10);
@@ -46,10 +60,18 @@ type Match =
 function resolve(index: EmployeeIndex, id: string): Match {
   if (!index.has(id)) return { status: "none" };
   const employeeId = index.get(id);
-  return employeeId ? { status: "matched", employeeId } : { status: "ambiguous" };
+  return employeeId
+    ? { status: "matched", employeeId }
+    : { status: "ambiguous" };
 }
 
-function matchIssue(id: string, name: string | null, rows: number, firstRow: number, ambiguous: boolean): Issue {
+function matchIssue(
+  id: string,
+  name: string | null,
+  rows: number,
+  firstRow: number,
+  ambiguous: boolean,
+): Issue {
   return {
     rowNumber: firstRow,
     columnName: "Biometric ID",
@@ -109,7 +131,10 @@ export async function importAttendanceFile(p: {
   }));
   const rows: RowData[] = [];
   const seen = new Map<string, number>();
-  const unmatched = new Map<string, { name: string | null; rows: number; firstRow: number; ambiguous: boolean }>();
+  const unmatched = new Map<
+    string,
+    { name: string | null; rows: number; firstRow: number; ambiguous: boolean }
+  >();
   let successful = 0;
 
   for (const r of parsed.rows) {
@@ -179,11 +204,18 @@ export async function importAttendanceFile(p: {
   if (issues.length > MAX_ISSUES) {
     storedIssues = [
       ...issues.slice(0, MAX_ISSUES),
-      { rowNumber: null, columnName: null, message: `${issues.length - MAX_ISSUES} more issues not shown.` },
+      {
+        rowNumber: null,
+        columnName: null,
+        message: `${issues.length - MAX_ISSUES} more issues not shown.`,
+      },
     ];
   }
 
-  const fileName = path.basename(p.fileName).replace(/[\u0000-\u001f]/g, "").slice(0, 255);
+  const fileName = path
+    .basename(p.fileName)
+    .replace(/[\u0000-\u001f]/g, "")
+    .slice(0, 255);
 
   // Save everything atomically
   const batchId = await prisma.$transaction(async (tx) => {
@@ -204,17 +236,34 @@ export async function importAttendanceFile(p: {
 
     for (let i = 0; i < rows.length; i += CHUNK) {
       await tx.importedAttendanceRow.createMany({
-        data: rows.slice(i, i + CHUNK).map((r) => ({ ...r, importBatchId: batch.id })),
+        data: rows
+          .slice(i, i + CHUNK)
+          .map((r) => ({ ...r, importBatchId: batch.id })),
       });
     }
     for (let i = 0; i < storedIssues.length; i += CHUNK) {
       await tx.importError.createMany({
-        data: storedIssues.slice(i, i + CHUNK).map((e) => ({ ...e, importBatchId: batch.id })),
+        data: storedIssues
+          .slice(i, i + CHUNK)
+          .map((e) => ({ ...e, importBatchId: batch.id })),
       });
     }
     return batch.id;
   }, TX_OPTIONS);
-
+  let processing: ProcessingInfo | null = null;
+  let processingError: string | undefined;
+  if (successful > 0) {
+    try {
+      const r = await processBatch(batchId);
+      processing = { processed: r.processed, byStatus: r.byStatus };
+    } catch (e) {
+      console.error("Attendance processing failed:", e);
+      processingError =
+        e instanceof ServiceError
+          ? e.message
+          : 'Attendance processing failed. Open the batch and click "Process attendance".';
+    }
+  }
   return {
     batchId,
     status,
@@ -224,6 +273,8 @@ export async function importAttendanceFile(p: {
     unmatched: [...unmatched.entries()]
       .filter(([, u]) => !u.ambiguous)
       .map(([biometricId, u]) => ({ biometricId, name: u.name, rows: u.rows })),
+    processing,
+    processingError,
   };
 }
 
@@ -238,17 +289,33 @@ export async function rematchBatch(batchId: string) {
 
   const index = await buildEmployeeIndex();
   const open = await prisma.importedAttendanceRow.findMany({
-    where: { importBatchId: batchId, employeeId: null, sourceBiometricId: { not: null } },
-    select: { sourceBiometricId: true, sourceEmployeeName: true, sourceRowNumber: true },
+    where: {
+      importBatchId: batchId,
+      employeeId: null,
+      sourceBiometricId: { not: null },
+    },
+    select: {
+      sourceBiometricId: true,
+      sourceEmployeeName: true,
+      sourceRowNumber: true,
+    },
     orderBy: { sourceRowNumber: "asc" },
   });
 
-  const groups = new Map<string, { name: string | null; rows: number; firstRow: number }>();
+  const groups = new Map<
+    string,
+    { name: string | null; rows: number; firstRow: number }
+  >();
   for (const r of open) {
     const id = r.sourceBiometricId!;
     const g = groups.get(id);
     if (g) g.rows++;
-    else groups.set(id, { name: r.sourceEmployeeName, rows: 1, firstRow: r.sourceRowNumber });
+    else
+      groups.set(id, {
+        name: r.sourceEmployeeName,
+        rows: 1,
+        firstRow: r.sourceRowNumber,
+      });
   }
 
   let newlyMatched = 0;
@@ -259,12 +326,24 @@ export async function rematchBatch(batchId: string) {
       const match = resolve(index, id);
       if (match.status === "matched") {
         const res = await tx.importedAttendanceRow.updateMany({
-          where: { importBatchId: batchId, employeeId: null, sourceBiometricId: id },
+          where: {
+            importBatchId: batchId,
+            employeeId: null,
+            sourceBiometricId: id,
+          },
           data: { employeeId: match.employeeId },
         });
         newlyMatched += res.count;
       } else {
-        issues.push(matchIssue(id, g.name, g.rows, g.firstRow, match.status === "ambiguous"));
+        issues.push(
+          matchIssue(
+            id,
+            g.name,
+            g.rows,
+            g.firstRow,
+            match.status === "ambiguous",
+          ),
+        );
       }
     }
 
@@ -290,7 +369,11 @@ export async function rematchBatch(batchId: string) {
       },
     });
   }, TX_OPTIONS);
-
+  try {
+    await processBatch(batchId);
+  } catch (e) {
+    console.error("Re-processing after re-match failed:", e);
+  }
   return { newlyMatched };
 }
 
@@ -304,12 +387,29 @@ export function listImportBatches() {
   });
 }
 
-export async function getImportBatchDetail(id: string) {
+export const ROWS_PAGE_SIZE = 1000;
+
+export async function getImportBatchDetail(
+  id: string,
+  requestedPage = 1,
+  unmatchedOnly = false,
+) {
   const batch = await prisma.importBatch.findUnique({
     where: { id },
     include: { uploadedBy: { select: { fullName: true } } },
   });
   if (!batch) return null;
+
+  const rowWhere = {
+    importBatchId: id,
+    ...(unmatchedOnly ? { employeeId: null } : {}),
+  };
+
+  const rowCount = await prisma.importedAttendanceRow.count({
+    where: rowWhere,
+  });
+  const pageCount = Math.max(1, Math.ceil(rowCount / ROWS_PAGE_SIZE));
+  const page = Math.min(Math.max(1, requestedPage), pageCount);
 
   const [errors, errorCount, preview] = await Promise.all([
     prisma.importError.findMany({
@@ -319,12 +419,22 @@ export async function getImportBatchDetail(id: string) {
     }),
     prisma.importError.count({ where: { importBatchId: id } }),
     prisma.importedAttendanceRow.findMany({
-      where: { importBatchId: id },
+      where: rowWhere,
       orderBy: { sourceRowNumber: "asc" },
-      take: 50,
+      skip: (page - 1) * ROWS_PAGE_SIZE,
+      take: ROWS_PAGE_SIZE,
       include: { employee: { select: { name: true, employeeCode: true } } },
     }),
   ]);
 
-  return { batch, errors, errorCount, preview };
+  return {
+    batch,
+    errors,
+    errorCount,
+    preview,
+    rowCount,
+    page,
+    pageCount,
+    pageSize: ROWS_PAGE_SIZE,
+  };
 }
