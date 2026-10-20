@@ -32,12 +32,11 @@ const atMinutes = (date: Date, minutes: number) =>
   new Date(date.getTime() + minutes * 60_000);
 const timeToMinutes = (t: string | null) => (t ? toMinutes(t) : null);
 
-/**
- * Turns the imported rows of one batch into daily Attendance records.
- * Safe to run again at any time (after changing rules, holidays, or re-matching).
- * Records that HR edited by hand (isManual) are never overwritten.
- */
-export async function processBatch(batchId: string): Promise<ProcessSummary> {
+export type ProcessScope = { employeeId?: string; from?: Date; to?: Date };
+export async function processBatch(
+  batchId: string,
+  scope?: ProcessScope,
+): Promise<ProcessSummary> {
   const batch = await prisma.importBatch.findUnique({
     where: { id: batchId },
     select: { id: true, month: true, year: true },
@@ -55,8 +54,11 @@ export async function processBatch(batchId: string): Promise<ProcessSummary> {
   const rows = await prisma.importedAttendanceRow.findMany({
     where: {
       importBatchId: batchId,
-      employeeId: { not: null },
-      attendanceDate: { not: null },
+      employeeId: scope?.employeeId ?? { not: null },
+      attendanceDate:
+        scope?.from && scope?.to
+          ? { gte: scope.from, lte: scope.to }
+          : { not: null },
     },
     orderBy: { sourceRowNumber: "asc" },
     select: {
@@ -70,7 +72,7 @@ export async function processBatch(batchId: string): Promise<ProcessSummary> {
   });
 
   const employeeIds = [...new Set(rows.map((r) => r.employeeId!))];
-  const [manual, leaves] = await Promise.all([
+  const [manual, leaves, shortLeaves] = await Promise.all([
     prisma.attendance.findMany({
       where: {
         employeeId: { in: employeeIds },
@@ -88,6 +90,14 @@ export async function processBatch(batchId: string): Promise<ProcessSummary> {
       },
       select: { employeeId: true, startDate: true, endDate: true },
     }),
+    prisma.shortLeave.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        status: "APPROVED",
+        date: { gte: start, lt: end },
+      },
+      select: { employeeId: true, date: true, startTime: true, endTime: true },
+    }),
   ]);
   const manualKeys = new Set(
     manual.map((m) => `${m.employeeId}|${toIsoDate(m.date)}`),
@@ -96,6 +106,20 @@ export async function processBatch(batchId: string): Promise<ProcessSummary> {
     leaves.some(
       (l) =>
         l.employeeId === employeeId && l.startDate <= date && l.endDate >= date,
+    );
+  const coveringShortLeave = (
+    employeeId: string,
+    date: Date,
+    arrival: number,
+  ) =>
+    shortLeaves.find(
+      (s) =>
+        s.employeeId === employeeId &&
+        toIsoDate(s.date) === toIsoDate(date) &&
+        s.startTime !== null &&
+        s.endTime !== null &&
+        minutesOfDay(s.startTime) <= cfg.shiftStart + cfg.graceMinutes &&
+        minutesOfDay(s.endTime) >= arrival,
     );
 
   const summary: ProcessSummary = {
@@ -136,9 +160,30 @@ export async function processBatch(batchId: string): Promise<ProcessSummary> {
 
     let status: AttendanceStatus = result.status;
     let remarks = result.remarks;
-    if (status === "ABSENT" && onLeave(employeeId, date)) {
+
+    if (
+      (status === "ABSENT" || status === "INCOMPLETE") &&
+      onLeave(employeeId, date)
+    ) {
+      // Approved full-day leave covers a day with no usable punches
       status = "ON_LEAVE";
       remarks = "Approved leave";
+    } else if (
+      status === "SHORT_LEAVE" &&
+      settings.shortLeaveExcusesLateArrival &&
+      result.checkIn !== null
+    ) {
+      // Approved short leave covers the late arrival
+      const covering = coveringShortLeave(employeeId, date, result.checkIn);
+      if (covering) {
+        status = "PRESENT";
+        remarks = [
+          remarks,
+          `Late arrival covered by approved short leave ${formatMinutes(minutesOfDay(covering.startTime!))}-${formatMinutes(minutesOfDay(covering.endTime!))}`,
+        ]
+          .filter(Boolean)
+          .join("; ");
+      }
     }
 
     writes.push({
@@ -176,16 +221,39 @@ export async function processBatch(batchId: string): Promise<ProcessSummary> {
           create: { employeeId: w.employeeId, date: w.date, ...w.data },
         });
       }
-      await tx.importBatch.update({
-        where: { id: batchId },
-        data: { processedAt: new Date() },
-      });
+      if (!scope) {
+        await tx.importBatch.update({
+          where: { id: batchId },
+          data: { processedAt: new Date() },
+        });
+      }
     },
     { timeout: 120_000, maxWait: 10_000 },
   );
 
   return summary;
 }
+
+export async function reprocessEmployeeRange(
+  employeeId: string,
+  from: Date,
+  to: Date,
+) {
+  const batches = await prisma.attendance.findMany({
+    where: {
+      employeeId,
+      date: { gte: from, lte: to },
+      sourceBatchId: { not: null },
+    },
+    distinct: ["sourceBatchId"],
+    select: { sourceBatchId: true },
+  });
+  for (const b of batches) {
+    await processBatch(b.sourceBatchId!, { employeeId, from, to });
+  }
+}
+
+const minutesOfDay = (d: Date) => d.getUTCHours() * 60 + d.getUTCMinutes();
 
 /* ---------- Daily view ---------- */
 

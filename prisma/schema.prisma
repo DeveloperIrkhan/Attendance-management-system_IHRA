@@ -89,19 +89,22 @@ model Attendance {
 }
 
 model AttendanceSettings {
-  id                    String   @id @default("default")
-  shiftStart            String   @default("08:00")
-  shiftEnd              String   @default("16:00")
-  graceMinutes          Int      @default(15) // this is 15minutes for grace period. 
-  halfDayAfterMinutes   Int      @default(180)
-  duplicatePunchMinutes Int      @default(15)
-  earliestPunch         String   @default("07:00")
-  latestPunch           String   @default("22:00")
-  overtimeMinMinutes    Int      @default(0)
-  offDayWorkIsOvertime  Boolean  @default(false)
-  defaultWeeklyOffDays  Int[]    @default([5, 6, 0])
-  updatedById           String?
-  updatedAt             DateTime @updatedAt
+  id                           String   @id @default("default")
+  shiftStart                   String   @default("08:00")
+  shiftEnd                     String   @default("16:00")
+  graceMinutes                 Int      @default(15) // this is 15minutes for grace period. 
+  halfDayAfterMinutes          Int      @default(180)
+  duplicatePunchMinutes        Int      @default(15)
+  earliestPunch                String   @default("07:00")
+  latestPunch                  String   @default("22:00")
+  overtimeMinMinutes           Int      @default(0)
+  offDayWorkIsOvertime         Boolean  @default(false)
+  defaultWeeklyOffDays         Int[]    @default([5, 6, 0])
+  shortLeaveMaxMinutes         Int      @default(180)
+  shortLeaveMonthlyLimit       Int      @default(0)
+  shortLeaveExcusesLateArrival Boolean  @default(true)
+  updatedById                  String?
+  updatedAt                    DateTime @updatedAt
 }
 
 model MonthlyOffDays {
@@ -184,10 +187,12 @@ model ImportError {
 }
 
 model LeaveType {
-  id            String         @id @default(cuid())
-  name          String         @unique
-  isPaid        Boolean        @default(true)
-  leaveRequests LeaveRequest[]
+  id              String         @id @default(cuid())
+  name            String         @unique
+  isPaid          Boolean        @default(true)
+  yearlyQuotaDays Int?
+  isActive        Boolean        @default(true)
+  leaveRequests   LeaveRequest[]
 }
 
 model LeaveRequest {
@@ -198,9 +203,12 @@ model LeaveRequest {
   endDate     DateTime           @db.Date
   reason      String?
   status      LeaveRequestStatus @default(PENDING)
+  days        Int                @default(0)
 
-  employee  Employee  @relation(fields: [employeeId], references: [id])
-  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
+  decidedById String?
+  decidedAt   DateTime?
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -209,15 +217,17 @@ model LeaveRequest {
 }
 
 model ShortLeave {
-  id              String    @id @default(cuid())
+  id              String             @id @default(cuid())
   employeeId      String
-  date            DateTime  @db.Date
+  date            DateTime           @db.Date
   startTime       DateTime?
   endTime         DateTime?
-  durationMinutes Int       @default(0)
+  durationMinutes Int                @default(0)
   reason          String?
-
-  employee Employee @relation(fields: [employeeId], references: [id])
+  status          LeaveRequestStatus @default(PENDING)
+  decidedById     String?
+  decidedAt       DateTime?
+  employee        Employee           @relation(fields: [employeeId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

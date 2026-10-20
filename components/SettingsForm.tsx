@@ -14,6 +14,9 @@ export type SettingsValues = {
   overtimeMinMinutes: number;
   offDayWorkIsOvertime: boolean;
   defaultWeeklyOffDays: number[];
+  shortLeaveMaxMinutes: number;
+  shortLeaveMonthlyLimit: number;
+  shortLeaveExcusesLateArrival: boolean;
 };
 
 const DAYS: { value: number; label: string }[] = [
@@ -117,7 +120,48 @@ export default function SettingsForm({
           />
         </Field>
       </section>
-
+      <section className="space-y-4">
+        <p className="text-sm font-medium">Short leave</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Maximum length of one short leave (minutes)"
+            hint="Longer absences need a full-day leave."
+          >
+            <input
+              type="number"
+              name="shortLeaveMaxMinutes"
+              min={15}
+              max={480}
+              defaultValue={values.shortLeaveMaxMinutes}
+              required
+              className={input}
+            />
+          </Field>
+          <Field
+            label="Short leaves allowed per month"
+            hint="0 means no limit."
+          >
+            <input
+              type="number"
+              name="shortLeaveMonthlyLimit"
+              min={0}
+              max={31}
+              defaultValue={values.shortLeaveMonthlyLimit}
+              required
+              className={input}
+            />
+          </Field>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="shortLeaveExcusesLateArrival"
+            defaultChecked={values.shortLeaveExcusesLateArrival}
+          />
+          An approved short leave excuses a late arrival (the day counts as
+          Present instead of Short leave)
+        </label>
+      </section>
       <section className="grid gap-4 sm:grid-cols-2">
         <Field
           label="Ignore repeated punches within (minutes)"
@@ -172,7 +216,6 @@ export default function SettingsForm({
           />
         </Field>
       </section>
-
       <section className="space-y-2">
         <p className="text-sm font-medium">Default weekly off days</p>
         <div className="flex flex-wrap gap-4">
@@ -193,7 +236,6 @@ export default function SettingsForm({
           page.
         </p>
       </section>
-
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
@@ -202,7 +244,10 @@ export default function SettingsForm({
         />
         Count time worked on weekly off days and holidays as overtime
       </label>
-
+      shortLeaveMaxMinutes: fd.get("shortLeaveMaxMinutes"),
+      shortLeaveMonthlyLimit: fd.get("shortLeaveMonthlyLimit"),
+      shortLeaveExcusesLateArrival: fd.get("shortLeaveExcusesLateArrival") ===
+      "on",
       {state.error && (
         <div className="rounded bg-red-50 p-2 text-sm text-red-700">
           {state.error}
@@ -214,7 +259,6 @@ export default function SettingsForm({
           attendance&quot; on them.
         </div>
       )}
-
       <button
         type="submit"
         disabled={pending}

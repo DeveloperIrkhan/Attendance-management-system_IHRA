@@ -56,7 +56,7 @@ input {
 
 @layer base {
   * {
-    @apply border-border outline-ring/50
+    @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
@@ -89,13 +89,27 @@ input {
   }
 
   .custom-input {
-    @apply bg-white px-1.5 py-1 text-lg rounded-sm 
-    border !border-green-500 transition-all 
+    @apply bg-white! px-1.5 py-1 text-lg rounded-sm 
+    border border-green-700! transition-all 
     duration-300 focus:outline-none 
-    focus:ring-1 focus:ring-green-600;
+    focus:ring-1 focus:ring-green-800;
   }
-  .bordering{
-    @apply border border-green-600 hover:border-green-800 duration-300 transition-colors
+  .green-button {
+    @apply rounded-md border border-green-800 bg-green-800 text-white hover:bg-white
+      hover:border hover:border-green-800 hover:text-green-800
+      px-4 py-2 text-sm disabled:opacity-50;
+  }
+  .green-button-inverse {
+    @apply rounded-md border border-green-800 text-green-800 bg-white
+     hover:bg-green-800
+      hover:border hover:border-green-800 hover:text-white
+      px-4 py-2 text-sm disabled:opacity-50;
+  }
+  .bordering {
+    @apply border border-green-600 hover:border-green-800 duration-300 transition-colors;
+  }
+  .form-style {
+    @apply shadow-lg rounded-lg;
   }
 }
 @layer utilities {

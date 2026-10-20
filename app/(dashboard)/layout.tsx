@@ -3,7 +3,7 @@ import { BsCalendar2Month } from "react-icons/bs";
 import { hasPermission, requireUser } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { TfiStamp } from "react-icons/tfi";
-
+import { PiOfficeChairFill } from "react-icons/pi";
 import Spinner from "@/components/Spinner";
 import { VscGraph } from "react-icons/vsc";
 import Navigation from "@/components/Navigation";
@@ -67,20 +67,6 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
       show: hasPermission(user, PERMISSIONS.DEPARTMENTS_MANAGE),
     },
     {
-      icon: <BsCalendar2Month size={24} />,
-      text: "Monthly Summary",
-      alert: "Monthly Summary",
-      href: "/attendance/monthly",
-      show: hasPermission(user, PERMISSIONS.ATTENDANCE_VIEW),
-    },
-    {
-      icon: <TfiStamp size={24} />,
-      text: "Missing punches",
-      alert: "Missing punches",
-      href: "/attendance/review",
-      show: hasPermission(user, PERMISSIONS.ATTENDANCE_EDIT),
-    },
-    {
       icon: <FaFileExcel size={24} />,
       text: "Excel Import",
       alert: "Excel Import",
@@ -98,26 +84,40 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
         PERMISSIONS.ATTENDANCE_VIEW,
       ),
     },
-
     {
-      icon: <VscGraph size={24} />,
-      text: "Reports",
-      alert: "Reports",
-      href: "/reports",
-      show: hasPermission(user, PERMISSIONS.ATTENDANCE_IMPORT),
-    },
-    {
-      icon: <SlCalender size={24} />,
-      text: "Calendar",
-      alert: "Calendar",
-      href: "/attendance/calendar",
-      show: hasPermission(user, PERMISSIONS.ATTENDANCE_SETTINGS),
+      icon: <TfiStamp size={24} />,
+      text: "Missing punches",
+      alert: "Missing punches",
+      href: "/attendance/review",
+      show: hasPermission(user, PERMISSIONS.ATTENDANCE_EDIT),
     },
     {
       icon: <FaListCheck size={24} />,
       text: "Daily attendance",
       alert: "Daily attendance",
       href: "/attendance/daily",
+      show: hasPermission(user, PERMISSIONS.ATTENDANCE_SETTINGS),
+    },
+    {
+      icon: <BsCalendar2Month size={24} />,
+      text: "Monthly Summary",
+      alert: "Monthly Summary",
+      href: "/attendance/monthly",
+      show: hasPermission(user, PERMISSIONS.ATTENDANCE_VIEW),
+    },
+    {
+      icon: <PiOfficeChairFill size={24} />,
+      text: "Leaves",
+      alert: "Leaves Summary",
+      href: "/leaves",
+      show: hasPermission(user, PERMISSIONS.LEAVES_MANAGE),
+    },
+
+    {
+      icon: <SlCalender size={24} />,
+      text: "Calendar",
+      alert: "Calendar",
+      href: "/attendance/calendar",
       show: hasPermission(user, PERMISSIONS.ATTENDANCE_SETTINGS),
     },
     {
@@ -130,12 +130,12 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
   ].filter((l) => l.show);
 
   return (
-    <div>
+    <div className="h-screen">
       <Navigation user={user} />
-      <div className="flex h-screen  overflow-hidden">
+      <div className="flex h-screen w-full  overflow-hidden">
         <SideMenu links={NavagtionLinks} />
         <div className="flex-1">
-          <main className="p-6 bg-slate-100 h-screen">{children}</main>
+          <main className="p-6 bg-slate-100 h-full">{children}</main>
         </div>
       </div>
     </div>

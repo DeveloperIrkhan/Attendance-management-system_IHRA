@@ -127,6 +127,7 @@ export default async function MonthlySummaryPage({
               <th className={th}>Absent</th>
               <th className={th}>On leave</th>
               <th className={th}>Late (min)</th>
+              <th className={th}>Approved short leave (min)</th>
               <th className={th}>Overtime</th>
               <th className={th}>Worked</th>
             </tr>
@@ -134,7 +135,7 @@ export default async function MonthlySummaryPage({
           <tbody className="whitespace-nowrap">
             {rows.length === 0 && (
               <tr>
-                <td colSpan={13} className="p-4 text-center text-zinc-500">
+                <td colSpan={14} className="p-4 text-center text-zinc-500">
                   No employees found.
                 </td>
               </tr>
@@ -162,12 +163,17 @@ export default async function MonthlySummaryPage({
                     <td className="p-3 text-right">{num(r.onLeave)}</td>
                     <td className="p-3 text-right">{num(r.lateMinutes)}</td>
                     <td className="p-3 text-right">
+                      {num(r.shortLeaveApprovedMinutes)}
+                    </td>
+                    <td className="p-3 text-right">
                       {hours(r.overtimeMinutes)} hrs
                     </td>
-                    <td className="p-3 text-right">{hours(r.workedMinutes)} hrs</td>
+                    <td className="p-3 text-right">
+                      {hours(r.workedMinutes)} hrs
+                    </td>
                   </>
                 ) : (
-                  <td colSpan={10} className="p-3 text-center text-zinc-400">
+                  <td colSpan={11} className="p-3 text-center text-zinc-400">
                     No attendance data for this month
                   </td>
                 )}
@@ -188,6 +194,7 @@ export default async function MonthlySummaryPage({
                 <td className="p-3 text-right">{totals.absent}</td>
                 <td className="p-3 text-right">{totals.onLeave}</td>
                 <td className="p-3 text-right">{totals.lateMinutes}</td>
+                <td className="p-3 text-right">{totals.shortLeaveApprovedMinutes}</td>
                 <td className="p-3 text-right">
                   {hours(totals.overtimeMinutes)}
                 </td>

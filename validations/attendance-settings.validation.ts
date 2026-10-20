@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { toMinutes } from "@/lib/attendance/attendance-rules";
 
-const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use 24-hour time such as 08:00");
+const time = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use 24-hour time such as 08:00");
 const minutes = (min: number, max: number, label: string) =>
   z.coerce
     .number()
@@ -22,21 +24,40 @@ export const settingsSchema = z
     overtimeMinMinutes: minutes(0, 480, "Minimum overtime"),
     offDayWorkIsOvertime: z.boolean(),
     defaultWeeklyOffDays: weekdays,
+    shortLeaveMaxMinutes: minutes(15, 480, "Maximum short leave"),
+    shortLeaveMonthlyLimit: minutes(0, 31, "Monthly short leave limit"),
+    shortLeaveExcusesLateArrival: z.boolean(),
   })
   .superRefine((v, ctx) => {
     const start = toMinutes(v.shiftStart);
     const end = toMinutes(v.shiftEnd);
     if (end <= start) {
-      ctx.addIssue({ code: "custom", path: ["shiftEnd"], message: "Shift end must be after shift start" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["shiftEnd"],
+        message: "Shift end must be after shift start",
+      });
     }
     if (toMinutes(v.earliestPunch) > start) {
-      ctx.addIssue({ code: "custom", path: ["earliestPunch"], message: "Earliest punch must not be after shift start" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["earliestPunch"],
+        message: "Earliest punch must not be after shift start",
+      });
     }
     if (toMinutes(v.latestPunch) < end) {
-      ctx.addIssue({ code: "custom", path: ["latestPunch"], message: "Latest punch must not be before shift end" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["latestPunch"],
+        message: "Latest punch must not be before shift end",
+      });
     }
     if (v.halfDayAfterMinutes <= v.graceMinutes) {
-      ctx.addIssue({ code: "custom", path: ["halfDayAfterMinutes"], message: "Half-day threshold must be larger than the grace period" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["halfDayAfterMinutes"],
+        message: "Half-day threshold must be larger than the grace period",
+      });
     }
   });
 

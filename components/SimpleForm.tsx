@@ -74,7 +74,7 @@ export default function SimpleForm({
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md cursor-pointer bg-green-700 hover:bg-green-800 hoverEffect px-4 py-2 text-sm text-white disabled:opacity-50"
+        className="green-button hoverEffect"
       >
         {pending ? "Saving..." : submitLabel}
       </button>

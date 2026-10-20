@@ -10,7 +10,9 @@ export default async function AttendanceSettingsPage() {
   return (
     <div className="w-full flex justify-center items-center">
       <div className="space-y-4">
-        <h1 className="text-2xl text-green-800 font-semibold">Attendance rules</h1>
+        <h1 className="text-2xl text-green-800 font-semibold">
+          Attendance rules
+        </h1>
         <p className="max-w-3xl text-sm text-green-600">
           These rules are used when attendance is processed. Changing them does
           not alter existing records until you click &quot;Process
@@ -30,6 +32,9 @@ export default async function AttendanceSettingsPage() {
             overtimeMinMinutes: s.overtimeMinMinutes,
             offDayWorkIsOvertime: s.offDayWorkIsOvertime,
             defaultWeeklyOffDays: s.defaultWeeklyOffDays,
+            shortLeaveMaxMinutes: s.shortLeaveMaxMinutes,
+            shortLeaveMonthlyLimit: s.shortLeaveMonthlyLimit,
+            shortLeaveExcusesLateArrival: s.shortLeaveExcusesLateArrival,
           }}
         />
       </div>

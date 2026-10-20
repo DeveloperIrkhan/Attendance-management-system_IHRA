@@ -56,7 +56,7 @@ export default async function EmployeesPage({
         {canManage && (
           <Link
             href="/employees/new"
-            className="rounded bg-green-600 hover:bg-green-900 px-4 py-2 text-sm text-white hoverEffect"
+            className="green-button hoverEffect"
           >
             Add employee
           </Link>
@@ -96,13 +96,13 @@ export default async function EmployeesPage({
         </select>
         <button
           type="submit"
-          className="rounded bordering px-4 py-2 text-sm bg-green-600  hover:bg-green-800 text-white"
+          className="green-button hoverEffect"
         >
           Filter
         </button>
         <Link
           href="/employees"
-          className="px-2 py-2 text-sm text-zinc-500 underline"
+          className="green-button-inverse hoverEffect"
         >
           Reset
         </Link>
@@ -110,7 +110,7 @@ export default async function EmployeesPage({
 
       <div className="overflow-x-auto bg-white rounded-md shadow-md p-4">
         <table className="w-full text-sm">
-          <thead className="bg-zinc-100 text-left">
+          <thead className="bg-green-800 border-b border-green-800 text-white text-left">
             <tr>
               <th className="p-3">Code</th>
               <th className="p-3">Name</th>
@@ -157,7 +157,7 @@ export default async function EmployeesPage({
                   <td className="space-x-2 p-3 whitespace-nowrap">
                     <Link
                       href={`/employees/${e.id}/edit`}
-                      className="rounded border px-2 py-1 text-xs hover:bg-zinc-100"
+                      className="rounded border px-2 py-0.5 text-xs hover:bg-zinc-100"
                     >
                       Edit
                     </Link>

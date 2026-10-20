@@ -68,6 +68,9 @@ erDiagram
   Int overtimeMinMinutes
   Boolean offDayWorkIsOvertime
   Int defaultWeeklyOffDays
+  Int shortLeaveMaxMinutes
+  Int shortLeaveMonthlyLimit
+  Boolean shortLeaveExcusesLateArrival
   String updatedById "nullable"
   DateTime updatedAt
 }
@@ -128,6 +131,8 @@ erDiagram
   String id PK
   String name UK
   Boolean isPaid
+  Int yearlyQuotaDays "nullable"
+  Boolean isActive
 }
 "LeaveRequest" {
   String id PK
@@ -137,6 +142,9 @@ erDiagram
   DateTime endDate
   String reason "nullable"
   LeaveRequestStatus status
+  Int days
+  String decidedById "nullable"
+  DateTime decidedAt "nullable"
   DateTime createdAt
   DateTime updatedAt
 }
@@ -148,6 +156,9 @@ erDiagram
   DateTime endTime "nullable"
   Int durationMinutes
   String reason "nullable"
+  LeaveRequestStatus status
+  String decidedById "nullable"
+  DateTime decidedAt "nullable"
   DateTime createdAt
   DateTime updatedAt
 }
@@ -264,6 +275,9 @@ Properties as follows:
 - `overtimeMinMinutes`:
 - `offDayWorkIsOvertime`:
 - `defaultWeeklyOffDays`:
+- `shortLeaveMaxMinutes`:
+- `shortLeaveMonthlyLimit`:
+- `shortLeaveExcusesLateArrival`:
 - `updatedById`:
 - `updatedAt`:
 
@@ -342,6 +356,8 @@ Properties as follows:
 - `id`:
 - `name`:
 - `isPaid`:
+- `yearlyQuotaDays`:
+- `isActive`:
 
 ### `LeaveRequest`
 
@@ -354,6 +370,9 @@ Properties as follows:
 - `endDate`:
 - `reason`:
 - `status`:
+- `days`:
+- `decidedById`:
+- `decidedAt`:
 - `createdAt`:
 - `updatedAt`:
 
@@ -368,6 +387,9 @@ Properties as follows:
 - `endTime`:
 - `durationMinutes`:
 - `reason`:
+- `status`:
+- `decidedById`:
+- `decidedAt`:
 - `createdAt`:
 - `updatedAt`:
 

@@ -15,27 +15,31 @@ export default async function DepartmentsPage() {
 
   return (
     <div className="w-full">
-      <h1 className="text-xl font-semibold p-2 text-green-800">IHRA Department</h1>
-      <div className="flex justify-center items-start gap-3 md:flex-row flex-col">
-        <section className=" flex items-center justify-center rounded-md bg-white p-4 shadow-xl w-full md:max-w-md">
-          <div className="max-w-md">
-            <h2 className="mb-3 font-medium">Add department</h2>
-            <SimpleForm
-              action={createDepartmentActionAsync}
-              resetOnSuccess
-              submitLabel="Add department"
-              fields={[
-                { name: "name", label: "Name", required: true },
-                { name: "description", label: "Description" },
-              ]}
-            />
-          </div>
-        </section>
+      <h1 className="text-xl font-semibold p-2 text-green-800">
+        IHRA Department
+      </h1>
+      <div className="flex flex-col gap-3">
+        <div className="flex justify-center w-full">
+          <section className=" flex items-center justify-center rounded-md bg-white p-4 shadow-xl w-full md:max-w-md">
+            <div className="max-w-md">
+              <h2 className="mb-3 font-medium">Add department</h2>
+              <SimpleForm
+                action={createDepartmentActionAsync}
+                resetOnSuccess
+                submitLabel="Add department"
+                fields={[
+                  { name: "name", label: "Name", required: true },
+                  { name: "description", label: "Description" },
+                ]}
+              />
+            </div>
+          </section>
+        </div>
 
         <div className="overflow-x-auto rounded-md shadow-lg p-3 flex-1 bg-white">
-           <h2 className="mb-3 font-medium">Departments List</h2>
+          <h2 className="mb-3 font-medium">Departments List</h2>
           <table className="w-full text-sm">
-            <thead className="bg-zinc-100 text-left">
+            <thead className="bg-green-800 text-white rounded-t-md text-left">
               <tr>
                 <th className="p-3">Name</th>
                 <th className="p-3">Description</th>

@@ -19,9 +19,13 @@ export type SummaryRow = {
   lateMinutes: number;
   overtimeMinutes: number;
   workedMinutes: number;
+  shortLeaveApprovedMinutes: number;
 };
 
-type Counters = Omit<SummaryRow, "employeeId" | "code" | "name" | "department" | "isActive" | "hasData">;
+type Counters = Omit<
+  SummaryRow,
+  "employeeId" | "code" | "name" | "department" | "isActive" | "hasData"
+>;
 
 const emptyCounters = (): Counters => ({
   workingDays: 0,
@@ -34,10 +38,15 @@ const emptyCounters = (): Counters => ({
   lateMinutes: 0,
   overtimeMinutes: 0,
   workedMinutes: 0,
+  shortLeaveApprovedMinutes: 0,
 });
 
 /** Computed live from the daily records, so it always includes HR corrections. */
-export async function getMonthlySummary(year: number, month: number, departmentId?: string) {
+export async function getMonthlySummary(
+  year: number,
+  month: number,
+  departmentId?: string,
+) {
   const { start, end } = monthRange(year, month);
 
   const records = await prisma.attendance.findMany({
@@ -59,20 +68,44 @@ export async function getMonthlySummary(year: number, month: number, departmentI
     const c = byEmployee.get(r.employeeId) ?? emptyCounters();
     if (r.status !== "WEEKEND" && r.status !== "HOLIDAY") c.workingDays++;
     switch (r.status) {
-      case "PRESENT": c.present++; break;
-      case "SHORT_LEAVE": c.shortLeave++; break;
-      case "HALF_DAY": c.halfDay++; break;
-      case "INCOMPLETE": c.missingPunch++; break;
-      case "ABSENT": c.absent++; break;
-      case "ON_LEAVE": c.onLeave++; break;
-      default: break;
+      case "PRESENT":
+        c.present++;
+        break;
+      case "SHORT_LEAVE":
+        c.shortLeave++;
+        break;
+      case "HALF_DAY":
+        c.halfDay++;
+        break;
+      case "INCOMPLETE":
+        c.missingPunch++;
+        break;
+      case "ABSENT":
+        c.absent++;
+        break;
+      case "ON_LEAVE":
+        c.onLeave++;
+        break;
+      default:
+        break;
     }
     c.lateMinutes += r.lateMinutes;
     c.overtimeMinutes += r.overtimeMinutes;
     c.workedMinutes += r.workingMinutes;
     byEmployee.set(r.employeeId, c);
   }
-
+  const approvedShortLeaves = await prisma.shortLeave.findMany({
+    where: {
+      status: "APPROVED",
+      date: { gte: start, lt: end },
+      ...(departmentId ? { employee: { departmentId } } : {}),
+    },
+    select: { employeeId: true, durationMinutes: true },
+  });
+  for (const sl of approvedShortLeaves) {
+    const c = byEmployee.get(sl.employeeId);
+    if (c) c.shortLeaveApprovedMinutes += sl.durationMinutes;
+  }
   const ids = [...byEmployee.keys()];
   const employees = await prisma.employee.findMany({
     where: {

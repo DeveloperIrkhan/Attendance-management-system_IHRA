@@ -57,7 +57,7 @@ export default function EmployeeForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="max-w-2xl space-y-4 rounded bg-white p-6">
+    <form onSubmit={onSubmit} className="max-w-2xl form-style space-y-4 rounded bg-white p-6">
       {initial.id && <input type="hidden" name="id" value={initial.id} />}
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -120,11 +120,12 @@ export default function EmployeeForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded bg-green-700 hover:bg-green-800 hoverEffect px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="green-button hoverEffect"
         >
           {pending ? "Saving..." : isEdit ? "Save changes" : "Add employee"}
         </button>
-        <Link href="/employees" className="rounded border px-4 py-2 text-sm hover:bg-zinc-100">
+        <Link href="/employees" 
+        className="green-button-inverse hoverEffect">
           Cancel
         </Link>
       </div>
