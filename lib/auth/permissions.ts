@@ -54,7 +54,7 @@ export const SYSTEM_ROLES: {
   },
 ];
 
-// Where a user lands after login, based on what they can do.
+// Where a user go after login, based on what they can do.
 export function getHomePath(permissions: string[]): string {
   if (permissions.includes(P.USERS_MANAGE)) return "/admin";
   if (
@@ -64,3 +64,9 @@ export function getHomePath(permissions: string[]): string {
     return "/hr";
   return "/employee";
 }
+
+
+// export function getHomePath(permissions: string[]): string {
+//   if (permissions.includes(P.ATTENDANCE_VIEW)) return "/dashboard";
+//   return "/employee";
+// }

@@ -22,9 +22,9 @@ export const MenuItems = ({ icon, text, href, alert }: MenuItemProps) => {
   const menuItems = (
     <li
       className={`relative group flex items-center p-2 m-0 cursor-pointer 
-      transition-all duration-300 font-medium  hover:bg-gray-200 
-      hover:text-black hover:shadow-md ${!expanded && "flex justify-center items-center p-4"}
-      ${pathname === href ? "bg-green-800 text-white" : "text-white"}`}
+      transition-all duration-300 font-medium  hover:bg-green-950 
+      hover:text-white hover:shadow-md ${!expanded && "flex justify-center items-center p-4"}
+      ${pathname === href ? "bg-green-950 text-white" : "text-white"}`}
       onClick={() => setOpen((prev) => !prev)}>
       {icon}
 
@@ -43,8 +43,8 @@ export const MenuItems = ({ icon, text, href, alert }: MenuItemProps) => {
       )} */}
 
       {!expanded && (
-        <div className="absolute z-40 left-full rounded-md px-1 py-1 ml-5
-        bg-green-200 text-green-600 text-sm invisible opacity-20 -translate-x-3 transition-all duration-300
+        <div className="absolute z-40 left-full w-auto rounded-md p-2 ml-3
+        bg-green-800 text-white text-sm invisible opacity-30 -translate-x-2 transition-opacity duration-300
         group-hover:visible group-hover:opacity-100 group-hover:translate-x-0">{text}</div>
       )}
     </li>

@@ -18,25 +18,6 @@ import { SlCalender } from "react-icons/sl";
 
 async function AuthShell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const links = [
-    { href: "/home", label: "Dashboard", show: true },
-    {
-      href: "/employees",
-      label: "Employees",
-      show: hasPermission(user, PERMISSIONS.EMPLOYEES_VIEW),
-    },
-    {
-      href: "/departments",
-      label: "Departments",
-      show: hasPermission(user, PERMISSIONS.DEPARTMENTS_MANAGE),
-    },
-    {
-      href: "/designations",
-      label: "Designations",
-      show: hasPermission(user, PERMISSIONS.DEPARTMENTS_MANAGE),
-    },
-  ].filter((l) => l.show);
-
   const NavagtionLinks = [
     {
       icon: <FaHome size={24} />,
@@ -130,12 +111,12 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
   ].filter((l) => l.show);
 
   return (
-    <div className="h-screen">
+    <div className="h-full">
       <Navigation user={user} />
       <div className="flex h-screen w-full  overflow-hidden">
         <SideMenu links={NavagtionLinks} />
         <div className="flex-1">
-          <main className="p-6 bg-slate-100 h-full">{children}</main>
+          <main className="p-6 bg-slate-100 h-screen">{children}</main>
         </div>
       </div>
     </div>
