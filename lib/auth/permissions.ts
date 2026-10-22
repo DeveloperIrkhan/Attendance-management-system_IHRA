@@ -35,16 +35,24 @@ export const SYSTEM_ROLES: {
     name: "HR",
     description: "Manages employees, leaves and reports",
     permissions: [
-      P.EMPLOYEES_VIEW, P.EMPLOYEES_MANAGE, P.DEPARTMENTS_MANAGE,
-      P.ATTENDANCE_IMPORT, P.ATTENDANCE_VIEW, P.LEAVES_MANAGE,
-      P.REPORTS_VIEW, P.REPORTS_EXPORT,
+      P.EMPLOYEES_VIEW,
+      P.EMPLOYEES_MANAGE,
+      P.DEPARTMENTS_MANAGE,
+      P.ATTENDANCE_IMPORT,
+      P.ATTENDANCE_VIEW,
+      P.LEAVES_MANAGE,
+      P.REPORTS_VIEW,
+      P.REPORTS_EXPORT,
     ],
   },
   {
     name: "IT_OFFICER",
     description: "Uploads biometric attendance sheets",
-     permissions: [
-      P.EMPLOYEES_VIEW, P.ATTENDANCE_IMPORT, P.ATTENDANCE_VIEW, P.REPORTS_VIEW,
+    permissions: [
+      P.EMPLOYEES_VIEW,
+      P.ATTENDANCE_IMPORT,
+      P.ATTENDANCE_VIEW,
+      P.REPORTS_VIEW,
     ],
   },
   {
@@ -55,18 +63,17 @@ export const SYSTEM_ROLES: {
 ];
 
 // Where a user go after login, based on what they can do.
-export function getHomePath(permissions: string[]): string {
-  if (permissions.includes(P.USERS_MANAGE)) return "/admin";
-  if (
-    permissions.includes(P.EMPLOYEES_VIEW) ||
-    permissions.includes(P.ATTENDANCE_IMPORT)
-  )
-    return "/hr";
-  return "/employee";
-}
-
-
 // export function getHomePath(permissions: string[]): string {
-//   if (permissions.includes(P.ATTENDANCE_VIEW)) return "/dashboard";
+//   if (permissions.includes(P.USERS_MANAGE)) return "/admin";
+//   if (
+//     permissions.includes(P.EMPLOYEES_VIEW) ||
+//     permissions.includes(P.ATTENDANCE_IMPORT)
+//   )
+//     return "/hr";
 //   return "/employee";
 // }
+
+export function getHomePath(permissions: string[]): string {
+  if (permissions.includes(P.ATTENDANCE_VIEW)) return "/";
+  return "/employee";
+}

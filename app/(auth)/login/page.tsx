@@ -45,7 +45,7 @@ export default function LoginPage() {
         className="w-full max-w-sm space-y-5 rounded-lg bg-white p-6 shadow-lg"
       >
         <div>
-          <h1 className="text-xl font-bold text-center text-green-600">IHRA Attendance System</h1>
+          <h1 className="text-xl font-bold text-center text-green-800">IHRA Attendance System</h1>
           <p className="text-sm text-zinc-500 text-center">Sign in to continue</p>
         </div>
         {error && (
@@ -81,7 +81,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="custom-button disabled:opacity-50"
+          className="green-button w-full hoverEffect disabled:opacity-50"
         >
           {loading ? "Signing in..." : "Sign in"}
         </button>

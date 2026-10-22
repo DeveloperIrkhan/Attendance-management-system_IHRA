@@ -54,12 +54,6 @@ type ApiAuthResult =
   | { ok: true; user: AuthUser }
   | { ok: false; response: NextResponse };
 
-/**
- * For route handlers. Usage:
- *   const auth = await apiAuth({ permissions: [PERMISSIONS.ATTENDANCE_IMPORT] });
- *   if (!auth.ok) return auth.response;
- *   const user = auth.user;
- */
 
 export async function apiAuth(
   options: { permissions?: Permission[]; allowPasswordChange?: boolean } = {},

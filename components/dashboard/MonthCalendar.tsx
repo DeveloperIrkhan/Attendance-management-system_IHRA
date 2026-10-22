@@ -5,7 +5,7 @@ import { monthParam } from "@/lib/attendance/dates";
 import type { DayTone } from "@/services/dashboard.service";
 
 const DOT: Record<DayTone, string> = {
-  good: "bg-emerald-500",
+  good: "bg-green-500",
   fair: "bg-amber-500",
   poor: "bg-red-500",
   holiday: "bg-violet-400",
@@ -83,7 +83,7 @@ export default function MonthCalendar({
               aria-current={selected ? "date" : undefined}
               className={`mx-auto flex h-9 w-9 flex-col items-center justify-center rounded-full text-sm tabular-nums ${
                 selected
-                  ? "bg-emerald-600 font-semibold text-white"
+                  ? "bg-green-800 font-semibold text-white"
                   : muted
                     ? "text-slate-400 hover:bg-slate-100"
                     : "text-slate-700 hover:bg-slate-100"
@@ -100,7 +100,7 @@ export default function MonthCalendar({
 
       <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
         <li className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <span className="h-2 w-2 rounded-full bg-green-500" />
           90%+ attended
         </li>
         <li className="flex items-center gap-1.5">

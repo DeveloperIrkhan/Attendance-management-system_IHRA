@@ -4,6 +4,7 @@ import SidebarNav from "./SidebarNav";
 import type { NavSection } from "./nav";
 import { MONTHS } from "@/lib/attendance/months";
 import LogoutButton from "../LogoutButton";
+import Image from "next/image";
 
 type Props = {
   user: { fullName: string; roleName: string };
@@ -24,7 +25,7 @@ const initials = (name: string) =>
     .join("");
 
 const IMPORT_LABEL: Record<string, { text: string; className: string }> = {
-  COMPLETED: { text: "Completed", className: "text-emerald-400" },
+  COMPLETED: { text: "Completed", className: "text-green-400" },
   COMPLETED_WITH_ERRORS: {
     text: "Needs attention",
     className: "text-amber-400",
@@ -52,12 +53,18 @@ export default function AppShell({
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
       <aside className="hidden w-64 shrink-0 flex-col bg-slate-900 lg:sticky lg:top-0 lg:flex lg:h-screen">
         <div className="flex items-center gap-3 border-b border-slate-800 px-5 py-5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-white">
-            <Fingerprint size={22} aria-hidden />
+          <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-white">
+            <Image
+              src={"/logo.png"}
+              height={200}
+              width={200}
+              alt="logo"
+              className="w-10 h-10"
+            />
           </span>
           <div className="leading-tight">
-            <p className="font-semibold text-white">Attendance</p>
-            <p className="text-xs text-slate-400">Management system</p>
+            <p className="font-semibold text-white">IHRA Attendance</p>
+            <p className="text-xs text-slate-400">system dashboard</p>
           </div>
         </div>
 
@@ -76,7 +83,7 @@ export default function AppShell({
                 </p>
                 <Link
                   href="/attendance/imports"
-                  className="mt-2 inline-block text-emerald-400 hover:underline"
+                  className="mt-2 inline-block text-green-400 hover:underline"
                 >
                   View import history
                 </Link>
@@ -91,7 +98,7 @@ export default function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
           <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
-            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white lg:hidden">
+            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-green-800 text-white lg:hidden">
               <Fingerprint size={18} aria-hidden />
             </span>
 
@@ -110,7 +117,7 @@ export default function AppShell({
                   name="q"
                   type="search"
                   placeholder="Search employees by name, code or ID"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:outline-none"
                 />
               </form>
             ) : (
@@ -126,7 +133,7 @@ export default function AppShell({
                     ? `${notifications} items need attention`
                     : "Nothing needs attention"
                 }
-                className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-emerald-500"
+                className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-green-500"
               >
                 <Bell size={20} aria-hidden />
                 {notifications > 0 && (

@@ -16,23 +16,25 @@ export default async function DesignationsPage() {
   return (
     <div className="w-full">
       <h1 className="text-xl font-semibold p-2 text-green-800">Designations</h1>
-      <div className="flex justify-center items-start gap-3 md:flex-row flex-col">
-        <section className=" flex items-center justify-center rounded-md bg-white p-4 shadow-xl w-full md:max-w-md">
-          <div className="max-w-md">
-            <h2 className="mb-3 font-medium">Add designation</h2>
-            <SimpleForm
-              action={createDesignationAction}
-              resetOnSuccess
-              submitLabel="Add designation"
-              fields={[{ name: "title", label: "Title", required: true }]}
-            />
-          </div>
-        </section>
+      <div className="flex flex-col justify-center items-start gap-3">
+        <div className="flex w-full justify-center">
+          <section className="flex items-center justify-center rounded-md bg-white p-4 shadow-lg w-full md:max-w-md">
+            <div className="max-w-md">
+              <h2 className="mb-3 font-medium">Add designation</h2>
+              <SimpleForm
+                action={createDesignationAction}
+                resetOnSuccess
+                submitLabel="Add designation"
+                fields={[{ name: "title", label: "Title", required: true }]}
+              />
+            </div>
+          </section>
+        </div>
 
-        <div className="overflow-x-auto rounded-md shadow-lg p-3 flex-1 bg-white">
+        <div className="overflow-x-auto w-full rounded-md shadow-lg p-3 flex-1 bg-white">
           <h2 className="mb-3 font-medium">Designations List</h2>
           <table className="w-full text-sm">
-            <thead className="bg-zinc-100 text-left">
+            <thead className="bg-green-800 text-white text-left">
               <tr>
                 <th className="p-3">Title</th>
                 <th className="p-3">Employees</th>
@@ -79,7 +81,7 @@ export default async function DesignationsPage() {
                         label="Delete"
                         danger
                         confirmMessage={`Delete designation "${d.title}"?`}
-                      /> 
+                      />
                     </div>
                   </td>
                 </tr>

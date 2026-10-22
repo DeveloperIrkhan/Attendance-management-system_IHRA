@@ -41,7 +41,7 @@ type Props = {
   todayIso: string;
 };
 
-const card = "rounded-xl border border-slate-200 bg-white";
+const card = "rounded-xl border border-slate-200 bg-white  shadow-md";
 const cardTitle = "font-semibold";
 
 const longDate = (d: Date) =>
@@ -70,8 +70,8 @@ const pct = (n: number, base: number) =>
   base > 0 ? `${((n / base) * 100).toFixed(1)}%` : "-";
 
 const ACTIVITY_ICONS: Record<string, { icon: LucideIcon; tint: string }> = {
-  import: { icon: Upload, tint: "bg-emerald-50 text-emerald-600" },
-  process: { icon: CircleCheck, tint: "bg-emerald-50 text-emerald-600" },
+  import: { icon: Upload, tint: "bg-green-50 text-green-600" },
+  process: { icon: CircleCheck, tint: "bg-green-50 text-green-600" },
   leave: { icon: CalendarDays, tint: "bg-violet-50 text-violet-600" },
   employee: { icon: UserPlus, tint: "bg-blue-50 text-blue-600" },
   correction: { icon: Pencil, tint: "bg-amber-50 text-amber-600" },
@@ -204,7 +204,6 @@ export default function DashboardView({
   return (
     <div className="h-screen">
       <div className="space-y-6">
-        {/* ---------- Header ---------- */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
@@ -254,13 +253,12 @@ export default function DashboardView({
           </p>
         )}
 
-        {/* ---------- Stat cards ---------- */}
         <section
           className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
           aria-label="Today at a glance"
         >
           <StatCard
-            tint="emerald"
+            tint="green"
             icon={<Users size={22} aria-hidden />}
             label="Total employees"
             value={data.totalEmployees}
@@ -400,7 +398,7 @@ export default function DashboardView({
               </div>
               <Link
                 href={`/attendance/daily?date=${iso}`}
-                className="text-sm font-medium text-emerald-700 hover:underline"
+                className="text-sm font-medium text-green-700 hover:underline"
               >
                 View all
               </Link>
@@ -462,7 +460,7 @@ export default function DashboardView({
                         href={a.href}
                         className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm ${
                           i === 0
-                            ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                            ? "border-green-600 bg-green-800 text-white hover:bg-green-700"
                             : "border-slate-200 hover:bg-slate-50"
                         }`}
                       >
@@ -470,7 +468,7 @@ export default function DashboardView({
                         <span>
                           <span className="block font-medium">{a.label}</span>
                           <span
-                            className={`block text-xs ${i === 0 ? "text-emerald-100" : "text-slate-500"}`}
+                            className={`block text-xs ${i === 0 ? "text-green-100" : "text-slate-500"}`}
                           >
                             {a.hint}
                           </span>
@@ -488,7 +486,7 @@ export default function DashboardView({
                 <p className="flex items-center gap-2 text-sm text-slate-600">
                   <CircleCheck
                     size={16}
-                    className="text-emerald-600"
+                    className="text-green-600"
                     aria-hidden
                   />
                   Everything is up to date.
@@ -515,14 +513,14 @@ export default function DashboardView({
         </section>
 
         {/* ---------- Leaves and activity ---------- */}
-        <section className="grid items-start gap-4 xl:grid-cols-12">
+        {/* <section className="grid items-start gap-4 xl:grid-cols-12">
           {perms.canLeaves && (
             <div className={`${card} overflow-hidden xl:col-span-9`}>
               <div className="flex items-center justify-between px-5 py-4">
                 <h2 className={cardTitle}>Recent leave requests</h2>
                 <Link
                   href="/leaves"
-                  className="text-sm font-medium text-emerald-700 hover:underline"
+                  className="text-sm font-medium text-green-700 hover:underline"
                 >
                   View all
                 </Link>
@@ -600,7 +598,7 @@ export default function DashboardView({
               </ul>
             )}
           </div>
-        </section>
+        </section> */}
 
         {/* ---------- Insights ---------- */}
         <section className="grid gap-4 xl:grid-cols-2">

@@ -21,7 +21,7 @@ export default function RateBars({
         const rate = r.rate ?? 0;
         const color =
           rate >= 90
-            ? "bg-emerald-500"
+            ? "bg-green-500"
             : rate >= 75
               ? "bg-amber-500"
               : "bg-red-500";
