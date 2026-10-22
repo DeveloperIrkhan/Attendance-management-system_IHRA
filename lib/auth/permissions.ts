@@ -74,6 +74,6 @@ export const SYSTEM_ROLES: {
 // }
 
 export function getHomePath(permissions: string[]): string {
-  if (permissions.includes(P.ATTENDANCE_VIEW)) return "/";
+  if (permissions.includes(P.ATTENDANCE_VIEW)) return "/dashboard";
   return "/employee";
 }

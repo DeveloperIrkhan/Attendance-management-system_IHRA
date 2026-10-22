@@ -88,7 +88,7 @@ export default function SidebarNav({
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-green-400 ${
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-emerald-400 ${
                       active
                         ? "bg-green-800 text-white"
                         : "text-slate-300 hover:bg-slate-800 hover:text-white"

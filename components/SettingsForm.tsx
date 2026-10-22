@@ -244,10 +244,7 @@ export default function SettingsForm({
         />
         Count time worked on weekly off days and holidays as overtime
       </label>
-      shortLeaveMaxMinutes: fd.get("shortLeaveMaxMinutes"),
-      shortLeaveMonthlyLimit: fd.get("shortLeaveMonthlyLimit"),
-      shortLeaveExcusesLateArrival: fd.get("shortLeaveExcusesLateArrival") ===
-      "on",
+     
       {state.error && (
         <div className="rounded bg-red-50 p-2 text-sm text-red-700">
           {state.error}

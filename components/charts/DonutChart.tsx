@@ -17,7 +17,7 @@ export default function DonutChart({
   const size = 200;
   const c = size / 2;
   const r = 74;
-  const stroke = 24;
+  const stroke = 34;
   const circumference = 2 * Math.PI * r;
   const total = segments.reduce((s, x) => s + x.value, 0);
 

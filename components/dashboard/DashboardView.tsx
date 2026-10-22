@@ -12,6 +12,7 @@ import {
   Users,
   TriangleAlert,
   type LucideIcon,
+  FingerprintPattern,
 } from "lucide-react";
 import BarChart from "@/components/charts/BarChart";
 import ChartLegend from "@/components/charts/ChartLegend";
@@ -203,11 +204,11 @@ export default function DashboardView({
 
   return (
     <div className="h-screen">
-      <div className="space-y-6">
+      <div className="space-y-6 pb-3">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {greeting}, {firstName}
+            <h1 className="text-2xl font-semibold text-green-800 tracking-tight">
+              {greeting}, Mr. {firstName}
             </h1>
             <p className="mt-1 text-sm text-slate-500">
               Attendance for {longDate(data.date)}
@@ -270,7 +271,7 @@ export default function DashboardView({
           />
           <StatCard
             tint="blue"
-            icon={<UserCheck size={22} aria-hidden />}
+            icon={<FingerprintPattern size={22} aria-hidden />}
             label="Present"
             value={worksToday ? attended : dash}
             sub={
@@ -303,7 +304,7 @@ export default function DashboardView({
           />
         </section>
 
-        {/* ---------- Overview, summary, calendar ---------- */}
+       {/* ---------- Overview, summary, calendar ----------  */}
         <section className="grid gap-4 xl:grid-cols-12">
           <div className={`${card} p-5 xl:col-span-6`}>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -381,7 +382,7 @@ export default function DashboardView({
           </div>
         </section>
 
-        {/* ---------- Selected day's table, actions, attention ---------- */}
+       {/* //---------- Selected day's table, actions, attention ---------- // */}
         <section className="grid items-start gap-4 xl:grid-cols-12">
           <div className={`${card} overflow-hidden xl:col-span-9`}>
             <div className="flex items-center justify-between px-5 py-4">
@@ -601,7 +602,7 @@ export default function DashboardView({
         </section> */}
 
         {/* ---------- Insights ---------- */}
-        <section className="grid gap-4 xl:grid-cols-2">
+        {/* <section className="grid gap-4 xl:grid-cols-2">
           <div className={`${card} p-5`}>
             <h2 className={cardTitle}>When people arrive</h2>
             <p className="mb-3 text-sm text-slate-500">
@@ -641,14 +642,14 @@ export default function DashboardView({
             </p>
             <RateBars rows={data.departments} />
           </div>
-        </section>
+        </section> */}
 
-        {attention.length > 0 && (
+        {/* {attention.length > 0 && (
           <p className="flex items-center gap-2 text-xs text-slate-500">
             <TriangleAlert size={14} aria-hidden /> Items under &quot;Needs
             attention&quot; also appear on the bell icon.
           </p>
-        )}
+        )} */}
       </div>
     </div>
   );

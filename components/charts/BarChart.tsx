@@ -65,7 +65,7 @@ export default function BarChart({
             x2={W - m.r}
             y1={y(t)}
             y2={y(t)}
-            stroke="#e2e8f0"
+            stroke="#e2e8s0"
             strokeWidth={1}
           />
           <text

@@ -1,10 +1,23 @@
+"use client";
 import Link from "next/link";
-import { Bell, Fingerprint, Search } from "lucide-react";
+import {
+  Bell,
+  Fingerprint,
+  KeyRound,
+  LogOut,
+  Search,
+  ShieldCheck,
+  User,
+} from "lucide-react";
 import SidebarNav from "./SidebarNav";
 import type { NavSection } from "./nav";
 import { MONTHS } from "@/lib/attendance/months";
 import LogoutButton from "../LogoutButton";
 import Image from "next/image";
+import LogoutMenu from "../LogoutMenu";
+import { useEffect, useRef, useState } from "react";
+import axios from "axios";
+import { useRouter } from "next/navigation";
 
 type Props = {
   user: { fullName: string; roleName: string };
@@ -45,14 +58,42 @@ export default function AppShell({
   const importLabel = lastImport
     ? (IMPORT_LABEL[lastImport.status] ?? {
         text: lastImport.status,
-        className: "text-slate-300",
+        className: "text-green-300",
       })
     : null;
 
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  const logout = async () => {
+    try {
+      const response = await axios.post("/api/auth/logout");
+      if (response.data?.success) {
+        router.replace(response.data.redirectTo);
+        router.refresh();
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  };
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900">
-      <aside className="hidden w-64 shrink-0 flex-col bg-slate-900 lg:sticky lg:top-0 lg:flex lg:h-screen">
-        <div className="flex items-center gap-3 border-b border-slate-800 px-5 py-5">
+    <div className="flex min-h-screen h-full bg-green-50 text-green-900">
+      <aside className="hidden w-64 shrink-0 flex-col bg-green-900 lg:sticky lg:top-0 lg:flex lg:h-screen">
+        <div className="flex items-center gap-3 border-b border-green-800 px-5 py-5">
           <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-white">
             <Image
               src={"/logo.png"}
@@ -64,18 +105,18 @@ export default function AppShell({
           </span>
           <div className="leading-tight">
             <p className="font-semibold text-white">IHRA Attendance</p>
-            <p className="text-xs text-slate-400">system dashboard</p>
+            <p className="text-xs text-green-400">system dashboard</p>
           </div>
         </div>
 
         <SidebarNav sections={sections} />
 
         {canViewImports && (
-          <div className="m-3 rounded-lg bg-slate-800 p-4 text-sm">
+          <div className="m-3 rounded-lg bg-green-800 p-4 text-sm">
             <p className="font-medium text-white">Last import</p>
             {lastImport && importLabel ? (
               <>
-                <p className="mt-1 text-slate-300">
+                <p className="mt-1 text-green-300">
                   {MONTHS[lastImport.month - 1]} {lastImport.year}{" "}
                   <span className={importLabel.className}>
                     ({importLabel.text})
@@ -89,14 +130,14 @@ export default function AppShell({
                 </Link>
               </>
             ) : (
-              <p className="mt-1 text-slate-400">Nothing imported yet.</p>
+              <p className="mt-1 text-green-400">Nothing imported yet.</p>
             )}
           </div>
         )}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <header className="sticky top-0 z-20 border-b border-green-200 bg-white/95 backdrop-blur">
           <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-green-800 text-white lg:hidden">
               <Fingerprint size={18} aria-hidden />
@@ -110,14 +151,14 @@ export default function AppShell({
               >
                 <Search
                   size={16}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                   aria-hidden
                 />
                 <input
                   name="q"
                   type="search"
                   placeholder="Search employees by name, code or ID"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm placeholder:text-gray-400 focus:border-gray-500 focus:bg-white focus:outline-green-800"
                 />
               </form>
             ) : (
@@ -125,7 +166,7 @@ export default function AppShell({
             )}
             <div className="flex-1 sm:hidden" />
 
-            <div className="ml-auto flex items-center gap-3">
+            <div ref={ref} className="ml-auto flex items-center gap-3">
               <Link
                 href="/dashboard#attention"
                 aria-label={
@@ -133,7 +174,7 @@ export default function AppShell({
                     ? `${notifications} items need attention`
                     : "Nothing needs attention"
                 }
-                className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-green-500"
+                className="relative rounded-lg p-2 text-gray-500 hover:bg-green-100 focus-visible:outline-2 focus-visible:outline-gray-500"
               >
                 <Bell size={20} aria-hidden />
                 {notifications > 0 && (
@@ -143,18 +184,76 @@ export default function AppShell({
                 )}
               </Link>
 
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+              <div
+                onClick={() => setOpen((v) => !v)}
+                className="flex items-center gap-2.5"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-900 text-xs font-semibold text-white">
                   {initials(user.fullName)}
                 </span>
-                <div className="hidden leading-tight sm:block">
-                  <p className="text-sm font-medium">{user.fullName}</p>
-                  <p className="text-xs text-slate-500">
-                    {user.roleName.replaceAll("_", " ").toLowerCase()}
-                  </p>
-                </div>
               </div>
-              <LogoutButton />
+              {open && (
+                <div className="p-3 absolute top-9 right-10 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50">
+                  <div className="p-3 leading-5">
+                    <p className="text-md font-medium">{user.fullName}</p>
+                    <p className="text-xs text-gray-500">
+                      {user.roleName.replaceAll("_", " ").toLowerCase()}
+                    </p>
+                  </div>
+                  <hr className="border-b border-gray-50"/>
+                  <Link
+                    href="/"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-50 hover:text-green-600 transition-colors"
+                  >
+                    <User className="w-4 h-4" /> My Profile
+                  </Link>
+
+                  <Link
+                    href="/auth/change-password"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-50 hover:text-green-600 transition-colors"
+                  >
+                    <KeyRound className="w-4 h-4" /> Change Password
+                  </Link>
+
+                  {user.roleName === "Admin" && (
+                    <>
+                      <Link
+                        href="/dashboard/users/pending-approvals"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-50 hover:text-green-600 transition-colors"
+                      >
+                        <ShieldCheck className="w-4 h-4" /> Pending Approvals
+                      </Link>
+                      <Link
+                        href="/dashboard/users/view-all"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-50 hover:text-green-600 transition-colors"
+                      >
+                        <ShieldCheck className="w-4 h-4" /> All Users
+                      </Link>
+                      <Link
+                        href="/dashboard/roles/view-all"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-50 hover:text-green-600 transition-colors"
+                      >
+                        <ShieldCheck className="w-4 h-4" /> Manage Roles
+                      </Link>
+                    </>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setOpen(false);
+                      logout();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-green-600 hover:bg-green-50 transition-colors border-t border-slate-100"
+                  >
+                    <LogOut className="w-4 h-4" /> Logout
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           <SidebarNav sections={sections} orientation="horizontal" />
