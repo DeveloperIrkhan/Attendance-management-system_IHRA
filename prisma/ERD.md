@@ -18,6 +18,7 @@ erDiagram
 "Designation" {
   String id PK
   String title UK
+  ApprovalLevel approvalLevel
   DateTime createdAt
   DateTime updatedAt
 }
@@ -145,6 +146,10 @@ erDiagram
   Int days
   String decidedById "nullable"
   DateTime decidedAt "nullable"
+  ApprovalLevel approverLevel "nullable"
+  String approverDepartmentId "nullable"
+  String routeNote "nullable"
+  String requestedById "nullable"
   DateTime createdAt
   DateTime updatedAt
 }
@@ -216,6 +221,7 @@ Properties as follows:
 
 - `id`:
 - `title`:
+- `approvalLevel`:
 - `createdAt`:
 - `updatedAt`:
 
@@ -373,6 +379,10 @@ Properties as follows:
 - `days`:
 - `decidedById`:
 - `decidedAt`:
+- `approverLevel`:
+- `approverDepartmentId`:
+- `routeNote`:
+- `requestedById`:
 - `createdAt`:
 - `updatedAt`:
 

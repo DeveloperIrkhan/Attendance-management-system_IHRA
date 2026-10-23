@@ -1,4 +1,3 @@
-
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
@@ -16,7 +15,6 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  // Create or synchronize system roles.
   for (const role of SYSTEM_ROLES) {
     await prisma.role.upsert({
       where: { name: role.name },
@@ -34,16 +32,14 @@ async function main() {
   const fullName = process.env.SEED_ADMIN_NAME ?? "System Admin";
 
   if (!email || !password) {
-    throw new Error(
-      "Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD in .env",
-    );
+    throw new Error("Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD in .env");
   }
 
   const adminRole = await prisma.role.findUniqueOrThrow({
     where: { name: "ADMIN" },
   });
 
-  // Always generate a proper password hash.
+  // generating a proper password hash.
   const passwordHash = await hashPassword(password);
 
   const existing = await prisma.user.findUnique({
@@ -55,12 +51,13 @@ async function main() {
       where: { id: existing.id },
       data: {
         fullName,
-        passwordHash,
         roleId: adminRole.id,
         isActive: true,
         failedLoginAttempts: 0,
         lockedUntil: null,
-        mustChangePassword: true,
+        ...(process.env.SEED_RESET_ADMIN_PASSWORD === "true"
+          ? { passwordHash, mustChangePassword: true }
+          : {}),
       },
     });
 

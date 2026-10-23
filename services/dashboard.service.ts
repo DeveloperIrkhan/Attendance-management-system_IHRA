@@ -552,6 +552,8 @@ async function getRecentActivity(): Promise<ActivityItem[]> {
 export async function getShellData(want: {
   missingPunches: boolean;
   leaves: boolean;
+  /** leave requests waiting for this person to approve */
+  approvals?: number;
   imports: boolean;
 }) {
   const [missing, leaves, shorts, lastImport] = await Promise.all([
@@ -560,9 +562,9 @@ export async function getShellData(want: {
           where: { status: "INCOMPLETE", isManual: false },
         })
       : 0,
-    want.leaves
-      ? prisma.leaveRequest.count({ where: { status: "PENDING" } })
-      : 0,
+    // Full-day leave is now approved by the chain (DD / CEO / Chairman), not by HR,
+    // so it is counted for approvers through `approvals`, not here.
+    Promise.resolve(0),
     want.leaves ? prisma.shortLeave.count({ where: { status: "PENDING" } }) : 0,
     want.imports
       ? prisma.importBatch.findFirst({
@@ -571,5 +573,8 @@ export async function getShellData(want: {
         })
       : null,
   ]);
-  return { notifications: missing + leaves + shorts, lastImport };
+  return {
+    notifications: missing + leaves + shorts + (want.approvals ?? 0),
+    lastImport,
+  };
 }

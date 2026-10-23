@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { Permission } from "./permissions";
 import { NextResponse } from "next/server";
-import { User } from "../generated/prisma/client";
+import type { ApproverIdentity } from "@/lib/leave/approval-routing";
 
 // Loads the user fresh from the DB,
 // so deactivation and role changes apply immediately.
@@ -22,6 +22,13 @@ export const getCurrentUser = cache(async () => {
       mustChangePassword: true,
       employeeId: true,
       role: { select: { id: true, name: true, permissions: true } },
+      employee: {
+        select: {
+          id: true,
+          departmentId: true,
+          designation: { select: { approvalLevel: true } },
+        },
+      },
     },
   });
 
@@ -50,10 +57,19 @@ export async function requirePermission(...permissions: Permission[]) {
   return user;
 }
 
+/** The user's place in the leave approval chain (null if not linked to an employee). */
+export function getApproverIdentity(user: AuthUser): ApproverIdentity | null {
+  if (!user.employee) return null;
+  return {
+    employeeId: user.employee.id,
+    departmentId: user.employee.departmentId,
+    level: user.employee.designation?.approvalLevel ?? "STAFF",
+  };
+}
+
 type ApiAuthResult =
   | { ok: true; user: AuthUser }
   | { ok: false; response: NextResponse };
-
 
 export async function apiAuth(
   options: { permissions?: Permission[]; allowPasswordChange?: boolean } = {},

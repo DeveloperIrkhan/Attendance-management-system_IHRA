@@ -34,30 +34,43 @@ const leaveTypeFields = {
 };
 
 export const leaveTypeSchema = z.object(leaveTypeFields);
-export const leaveTypeUpdateSchema = z.object({ id: z.string().min(1), ...leaveTypeFields });
+export const leaveTypeUpdateSchema = z.object({
+  id: z.string().min(1),
+  ...leaveTypeFields,
+});
 export type LeaveTypeInput = z.infer<typeof leaveTypeSchema>;
 
 /* ---------- Leave requests ---------- */
 
 export const leaveRequestSchema = z
   .object({
-    employeeId: z.string().min(1, "Select an employee"),
+    // Only HR may name another employee; for everyone else the service uses their own record.
+    employeeId: z.string().optional(),
     leaveTypeId: z.string().min(1, "Select a leave type"),
     startDate: z.string().regex(DATE, "Choose the first day"),
     endDate: z.string().regex(DATE, "Choose the last day"),
     reason: optionalText(300),
-    approveNow: checkbox,
   })
   .superRefine((v, ctx) => {
     if (DATE.test(v.startDate) && DATE.test(v.endDate)) {
       if (v.endDate < v.startDate) {
-        ctx.addIssue({ code: "custom", path: ["endDate"], message: "The last day cannot be before the first day" });
+        ctx.addIssue({
+          code: "custom",
+          path: ["endDate"],
+          message: "The last day cannot be before the first day",
+        });
       } else if (v.startDate.slice(0, 4) !== v.endDate.slice(0, 4)) {
-        ctx.addIssue({ code: "custom", path: ["endDate"], message: "A request cannot span two calendar years. Split it into two requests." });
+        ctx.addIssue({
+          code: "custom",
+          path: ["endDate"],
+          message:
+            "A request cannot span two calendar years. Split it into two requests.",
+        });
       }
     }
   });
 export type LeaveRequestInput = z.infer<typeof leaveRequestSchema>;
+
 
 /* ---------- Short leaves ---------- */
 
@@ -71,8 +84,16 @@ export const shortLeaveSchema = z
     approveNow: checkbox,
   })
   .superRefine((v, ctx) => {
-    if (TIME.test(v.startTime) && TIME.test(v.endTime) && toMinutes(v.endTime) <= toMinutes(v.startTime)) {
-      ctx.addIssue({ code: "custom", path: ["endTime"], message: "End time must be after start time" });
+    if (
+      TIME.test(v.startTime) &&
+      TIME.test(v.endTime) &&
+      toMinutes(v.endTime) <= toMinutes(v.startTime)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["endTime"],
+        message: "End time must be after start time",
+      });
     }
   });
 export type ShortLeaveInput = z.infer<typeof shortLeaveSchema>;

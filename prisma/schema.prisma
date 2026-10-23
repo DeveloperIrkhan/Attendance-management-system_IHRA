@@ -23,11 +23,12 @@ model Department {
 }
 
 model Designation {
-  id        String     @id @default(cuid())
-  title     String     @unique
-  employees Employee[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id            String        @id @default(cuid())
+  title         String        @unique
+  approvalLevel ApprovalLevel @default(STAFF)
+  employees     Employee[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }
 
 model Employee {
@@ -207,13 +208,27 @@ model LeaveRequest {
 
   decidedById String?
   decidedAt   DateTime?
-  employee    Employee  @relation(fields: [employeeId], references: [id])
-  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id])
+
+  // Approval routing, fixed when the request is created.
+  approverLevel        ApprovalLevel?
+  approverDepartmentId String? // set when approverLevel is DD: only a DD of this department may decide
+  routeNote            String? // e.g. "No DD in department, sent to CEO"
+  requestedById        String?
+
+  employee  Employee  @relation(fields: [employeeId], references: [id])
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([employeeId, startDate, endDate])
+}
+
+enum ApprovalLevel {
+  STAFF
+  DD
+  CEO
+  CHAIRMAN
 }
 
 model ShortLeave {

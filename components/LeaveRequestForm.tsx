@@ -7,8 +7,10 @@ type Option = { id: string; label: string };
 
 type Props = {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
-  employees: Option[];
+  /** Only HR passes this, to file a request for someone else. Staff apply for themselves. */
+  employees?: Option[];
   leaveTypes: Option[];
+  submitLabel?: string;
 };
 
 const input = "w-full rounded border px-3 py-2";
@@ -17,6 +19,7 @@ export default function LeaveRequestForm({
   action,
   employees,
   leaveTypes,
+  submitLabel = "Submit leave request",
 }: Props) {
   const [state, formAction, pending] = useActionState(
     action,
@@ -37,17 +40,24 @@ export default function LeaveRequestForm({
   return (
     <form ref={formRef} onSubmit={onSubmit} className="max-w-2xl space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Employee</label>
-          <select name="employeeId" required defaultValue="" className={input}>
-            <option value="">Select employee</option>
-            {employees.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {employees && (
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Employee</label>
+            <select
+              name="employeeId"
+              required
+              defaultValue=""
+              className={input}
+            >
+              <option value="">Select employee</option>
+              {employees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="space-y-1">
           <label className="text-sm font-medium">Leave type</label>
           <select name="leaveTypeId" required defaultValue="" className={input}>
@@ -72,10 +82,6 @@ export default function LeaveRequestForm({
         <label className="text-sm font-medium">Reason</label>
         <input name="reason" maxLength={300} className={input} />
       </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="approveNow" />
-        Approve immediately (HR entering an already agreed leave)
-      </label>
       {state.error && (
         <div className="rounded bg-red-50 p-2 text-sm text-red-700">
           {state.error}
@@ -83,11 +89,11 @@ export default function LeaveRequestForm({
       )}
       {state.ok && (
         <div className="rounded bg-green-50 p-2 text-sm text-green-700">
-          Saved.
+          Request sent for approval.
         </div>
       )}
       <button type="submit" disabled={pending} className="green-button">
-        {pending ? "Saving..." : "Add leave request"}
+        {pending ? "Sending..." : submitLabel}
       </button>
     </form>
   );

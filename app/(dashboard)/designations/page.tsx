@@ -9,6 +9,19 @@ import {
   updateDesignationAction,
 } from "./actions";
 
+const LEVEL_OPTIONS = [
+  { value: "STAFF", label: "Staff (AD, SO, others)" },
+  { value: "DD", label: "DD (approves own department, up to 3 days)" },
+  { value: "CEO", label: "CEO" },
+  { value: "CHAIRMAN", label: "Chairman" },
+];
+const LEVEL_LABEL: Record<string, string> = {
+  STAFF: "Staff",
+  DD: "DD",
+  CEO: "CEO",
+  CHAIRMAN: "Chairman",
+};
+
 export default async function DesignationsPage() {
   await requirePermission(PERMISSIONS.DEPARTMENTS_MANAGE);
   const designations = await listDesignations();
@@ -25,7 +38,15 @@ export default async function DesignationsPage() {
                 action={createDesignationAction}
                 resetOnSuccess
                 submitLabel="Add designation"
-                fields={[{ name: "title", label: "Title", required: true }]}
+                fields={[
+                  { name: "title", label: "Title", required: true },
+                  {
+                    name: "approvalLevel",
+                    label: "Leave approval level",
+                    defaultValue: "STAFF",
+                    options: LEVEL_OPTIONS,
+                  },
+                ]}
               />
             </div>
           </section>
@@ -37,6 +58,7 @@ export default async function DesignationsPage() {
             <thead className="bg-green-800 text-white text-left">
               <tr>
                 <th className="p-3">Title</th>
+                <th className="p-3">Approval level</th>
                 <th className="p-3">Employees</th>
                 <th className="p-3">Actions</th>
               </tr>
@@ -44,7 +66,7 @@ export default async function DesignationsPage() {
             <tbody>
               {designations.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="p-4 text-center text-zinc-500">
+                  <td colSpan={4} className="p-4 text-center text-zinc-500">
                     No designations yet.
                   </td>
                 </tr>
@@ -52,6 +74,7 @@ export default async function DesignationsPage() {
               {designations.map((d) => (
                 <tr key={d.id} className="border-t align-top">
                   <td className="p-3 font-medium">{d.title}</td>
+                  <td className="p-3">{LEVEL_LABEL[d.approvalLevel]}</td>
                   <td className="p-3">{d._count.employees}</td>
                   <td className="space-y-2 p-3">
                     <div className="flex items-center gap-x-4">
@@ -70,6 +93,12 @@ export default async function DesignationsPage() {
                                 label: "Title",
                                 required: true,
                                 defaultValue: d.title,
+                              },
+                              {
+                                name: "approvalLevel",
+                                label: "Leave approval level",
+                                defaultValue: d.approvalLevel,
+                                options: LEVEL_OPTIONS,
                               },
                             ]}
                           />

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ServiceError } from "@/lib/action-state";
+import type { ApprovalLevel } from "@/lib/leave/approval-routing";
 
 export function listDesignations() {
   return prisma.designation.findMany({
@@ -8,24 +9,35 @@ export function listDesignations() {
   });
 }
 
-export async function createDesignation(input: { title: string }) {
+export async function createDesignation(input: {
+  title: string;
+  approvalLevel: ApprovalLevel;
+}) {
   const exists = await prisma.designation.findFirst({
     where: { title: { equals: input.title, mode: "insensitive" } },
     select: { id: true },
   });
   if (exists) throw new ServiceError("This designation already exists.");
 
-  return prisma.designation.create({ data: { title: input.title } });
+  return prisma.designation.create({
+    data: { title: input.title, approvalLevel: input.approvalLevel },
+  });
 }
 
-export async function updateDesignation(id: string, input: { title: string }) {
+export async function updateDesignation(
+  id: string,
+  input: { title: string; approvalLevel: ApprovalLevel },
+) {
   const exists = await prisma.designation.findFirst({
     where: { title: { equals: input.title, mode: "insensitive" }, NOT: { id } },
     select: { id: true },
   });
   if (exists) throw new ServiceError("This designation already exists.");
 
-  return prisma.designation.update({ where: { id }, data: { title: input.title } });
+  return prisma.designation.update({
+    where: { id },
+    data: { title: input.title, approvalLevel: input.approvalLevel },
+  });
 }
 
 export async function deleteDesignation(id: string) {

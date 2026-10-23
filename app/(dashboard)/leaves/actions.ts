@@ -28,11 +28,12 @@ function refresh() {
   revalidatePath("/leaves/short");
   revalidatePath("/leaves/types");
   revalidatePath("/leaves/balances");
+  revalidatePath("/leaves/my");
+  revalidatePath("/leaves/approvals");
   revalidatePath("/attendance/daily");
   revalidatePath("/attendance/monthly");
   revalidatePath("/attendance/review");
 }
-
 
 export async function createLeaveTypeAction(
   _prev: ActionState,
@@ -83,16 +84,19 @@ export async function toggleLeaveTypeAction(
   return { ok: true };
 }
 
-
 export async function createLeaveRequestAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const user = await requirePermission(PERMISSIONS.LEAVES_MANAGE);
+  // Staff apply for themselves, HR may file on behalf of someone (checked in the service).
+  const user = await requirePermission(
+    PERMISSIONS.LEAVES_REQUEST,
+    PERMISSIONS.LEAVES_MANAGE,
+  );
   const parsed = leaveRequestSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   try {
-    await createLeaveRequest(parsed.data, user.id);
+    await createLeaveRequest(parsed.data, user);
   } catch (e) {
     return toActionError(e);
   }
@@ -104,18 +108,22 @@ export async function decideLeaveRequestAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const user = await requirePermission(PERMISSIONS.LEAVES_MANAGE);
+  // The service decides who may approve, reject or cancel this particular request.
+  const user = await requirePermission(
+    PERMISSIONS.LEAVES_APPROVE,
+    PERMISSIONS.LEAVES_REQUEST,
+    PERMISSIONS.LEAVES_MANAGE,
+  );
   const parsed = decisionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Invalid request." };
   try {
-    await decideLeaveRequest(parsed.data.id, parsed.data.decision, user.id);
+    await decideLeaveRequest(parsed.data.id, parsed.data.decision, user);
   } catch (e) {
     return toActionError(e);
   }
   refresh();
   return { ok: true };
 }
-
 
 export async function createShortLeaveAction(
   _prev: ActionState,

@@ -10,6 +10,8 @@ type Field = {
   required?: boolean;
   type?: "text" | "email" | "date" | "number" | "password";
   placeholder?: string;
+  /** renders a dropdown instead of a text box */
+  options?: { value: string; label: string }[];
 };
 
 type Props = {
@@ -56,14 +58,32 @@ export default function SimpleForm({
           >
             {f.label}
           </label>
-          <input
-            id={`${f.name}-${hidden?.id ?? "new"}`}
-            name={f.name}
-            defaultValue={f.defaultValue}
-            required={f.required}
-            placeholder={f.placeholder}
-            className="w-full rounded custom-input px-3 py-2"
-          />
+          {f.options ? (
+            <select
+              id={`${f.name}-${hidden?.id ?? "new"}`}
+              name={f.name}
+              defaultValue={f.defaultValue ?? ""}
+              required={f.required}
+              className="w-full rounded custom-input px-3 py-2"
+            >
+              {f.options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              id={`${f.name}-${hidden?.id ?? "new"}`}
+              name={f.name}
+              type={f.type ?? "text"}
+              defaultValue={f.defaultValue}
+              required={f.required}
+              placeholder={f.placeholder}
+              autoComplete={f.type === "password" ? "new-password" : undefined}
+              className="w-full rounded custom-input px-3 py-2"
+            />
+          )}
         </div>
       ))}
       {state.error && (

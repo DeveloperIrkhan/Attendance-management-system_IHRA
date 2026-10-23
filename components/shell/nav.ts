@@ -20,7 +20,10 @@ export type NavSection = { title: string; items: NavItem[] };
 const P = PERMISSIONS;
 
 /** Menu structure. Items the person has no permission for are removed. */
-export function buildNav(can: (...p: Permission[]) => boolean): NavSection[] {
+export function buildNav(
+  can: (...p: Permission[]) => boolean,
+  opts: { isApprover?: boolean } = {},
+): NavSection[] {
   const sections: { title: string; items: (NavItem & { show: boolean })[] }[] =
     [
       {
@@ -30,7 +33,11 @@ export function buildNav(can: (...p: Permission[]) => boolean): NavSection[] {
             href: "/dashboard",
             label: "Dashboard",
             icon: "dashboard",
-            show: can(P.ATTENDANCE_VIEW),
+            show: can(
+              P.ATTENDANCE_VIEW,
+              P.ATTENDANCE_VIEW_OWN,
+              P.LEAVES_REQUEST,
+            ),
           },
         ],
       },
@@ -79,10 +86,34 @@ export function buildNav(can: (...p: Permission[]) => boolean): NavSection[] {
             show: can(P.ATTENDANCE_EDIT),
           },
           {
+            href: "/leaves/my",
+            label: "My leaves",
+            icon: "leaves",
+            show: can(P.LEAVES_REQUEST),
+          },
+          {
+            href: "/leaves/approvals",
+            label: "Leave approvals",
+            icon: "leaves",
+            show: Boolean(opts.isApprover),
+          },
+          {
             href: "/leaves",
             label: "Leave management",
             icon: "leaves",
             show: can(P.LEAVES_MANAGE),
+          },
+          {
+            href: "/attendance/my",
+            label: "My Attendance",
+            icon: "daily",
+            show: can(P.ATTENDANCE_VIEW_OWN),
+          },
+          {
+            href: "/leaves/request",
+            label: "Request for Leave",
+            icon: "daily",
+            show: can(P.LEAVES_REQUEST),
           },
         ],
       },
@@ -117,6 +148,12 @@ export function buildNav(can: (...p: Permission[]) => boolean): NavSection[] {
             label: "Rules",
             icon: "rules",
             show: can(P.ATTENDANCE_SETTINGS),
+          },
+          {
+            href: "/users",
+            label: "Users",
+            icon: "employees",
+            show: can(P.USERS_MANAGE),
           },
         ],
       },

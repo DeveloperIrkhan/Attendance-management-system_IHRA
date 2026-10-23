@@ -18,9 +18,13 @@ export const departmentUpdateSchema = departmentSchema.extend({
 });
 
 export const designationSchema = z.object({
-  title: z.string().trim().min(2, "Title must be at least 2 characters").max(100),
+  title: z
+    .string()
+    .trim()
+    .min(2, "Title must be at least 2 characters")
+    .max(100),
+  approvalLevel: z.enum(["STAFF", "DD", "CEO", "CHAIRMAN"]).default("STAFF"),
 });
-
 export const designationUpdateSchema = designationSchema.extend({
   id: z.string().min(1),
 });

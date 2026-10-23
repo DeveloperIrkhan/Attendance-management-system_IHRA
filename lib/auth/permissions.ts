@@ -10,6 +10,8 @@ export const PERMISSIONS = {
   ATTENDANCE_SETTINGS: "attendance:settings",
   ATTENDANCE_EDIT: "attendance:edit",
   LEAVES_MANAGE: "leaves:manage",
+  LEAVES_REQUEST: "leaves:request",
+  LEAVES_APPROVE: "leaves:approve",
   REPORTS_VIEW: "reports:view",
   REPORTS_EXPORT: "reports:export",
   BACKUP_MANAGE: "backup:manage",
@@ -40,7 +42,11 @@ export const SYSTEM_ROLES: {
       P.DEPARTMENTS_MANAGE,
       P.ATTENDANCE_IMPORT,
       P.ATTENDANCE_VIEW,
+      P.ATTENDANCE_EDIT,
+      P.ATTENDANCE_SETTINGS,
       P.LEAVES_MANAGE,
+      P.LEAVES_REQUEST,
+      P.LEAVES_APPROVE,
       P.REPORTS_VIEW,
       P.REPORTS_EXPORT,
     ],
@@ -53,27 +59,43 @@ export const SYSTEM_ROLES: {
       P.ATTENDANCE_IMPORT,
       P.ATTENDANCE_VIEW,
       P.REPORTS_VIEW,
+      P.LEAVES_REQUEST,
+      P.LEAVES_APPROVE,
     ],
   },
   {
     name: "EMPLOYEE",
     description: "Views own attendance",
-    permissions: [P.ATTENDANCE_VIEW_OWN],
+    permissions: [P.ATTENDANCE_VIEW_OWN, P.LEAVES_REQUEST],
   },
 ];
-
-// Where a user go after login, based on what they can do.
+export function getHomePath(_permissions: string[]): string {
+  return "/dashboard";
+}
 // export function getHomePath(permissions: string[]): string {
-//   if (permissions.includes(P.USERS_MANAGE)) return "/admin";
+//   // Management users
 //   if (
-//     permissions.includes(P.EMPLOYEES_VIEW) ||
+//     permissions.includes(P.USERS_MANAGE) ||
+//     permissions.includes(P.ATTENDANCE_VIEW) ||
 //     permissions.includes(P.ATTENDANCE_IMPORT)
-//   )
-//     return "/hr";
-//   return "/employee";
+//   ) {
+//     return "/dashboard";
+//   }
+
+//   // Employees who can request leave should land here first
+//   if (permissions.includes(P.LEAVES_REQUEST)) {
+//     return "/leaves/my";
+//   }
+
+//   // Employees who can only view their own attendance
+//   if (permissions.includes(P.ATTENDANCE_VIEW_OWN)) {
+//     return "/attendance/my";
+//   }
+
+//   return "/unauthorized";
 // }
 
-export function getHomePath(permissions: string[]): string {
-  if (permissions.includes(P.ATTENDANCE_VIEW)) return "/dashboard";
-  return "/employee";
-}
+// ADMIN: sees all dashboard statistics, user management, imports, settings, and reports.
+// HR: sees employee management, attendance, leaves, and reports.
+// IT_OFFICER: sees attendance statistics and Excel import features.
+// EMPLOYEE: sees only personal attendance and personal leave information.

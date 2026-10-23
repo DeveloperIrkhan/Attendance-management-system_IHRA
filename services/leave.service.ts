@@ -2,6 +2,20 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { ServiceError } from "@/lib/action-state";
 import type { LeaveRequestStatus } from "@/lib/generated/prisma/client";
+import {
+  getApproverIdentity,
+  hasPermission,
+  type AuthUser,
+} from "@/lib/auth/authorization";
+import { PERMISSIONS } from "@/lib/auth/permissions";
+import {
+  APPROVER_LABEL,
+  SHORT_ROUTE_MAX_DAYS,
+  canDecideRequest,
+  resolveApprovalRoute,
+  type ApprovalLevel,
+  type ApproverLevel,
+} from "@/lib/leave/approval-routing";
 import type { DayType } from "@/lib/attendance/attendance-rules";
 import { addDays, parseIsoDate, toIsoDate } from "@/lib/attendance/dates";
 import type {
@@ -132,18 +146,51 @@ async function assertNoOverlap(
   }
 }
 
+/** Is there an active user, linked to an employee with this level, who could decide? */
+async function hasActiveApprover(
+  level: ApproverLevel,
+  opts: { departmentId?: string; excludeEmployeeId: string },
+) {
+  const found = await prisma.employee.findFirst({
+    where: {
+      id: { not: opts.excludeEmployeeId },
+      isActive: true,
+      designation: { approvalLevel: level },
+      ...(opts.departmentId ? { departmentId: opts.departmentId } : {}),
+      user: { is: { isActive: true } },
+    },
+    select: { id: true },
+  });
+  return Boolean(found);
+}
+
 export async function createLeaveRequest(
   input: LeaveRequestInput,
-  userId: string,
+  user: AuthUser,
 ) {
   const start = parseIsoDate(input.startDate);
   const end = parseIsoDate(input.endDate);
   if (!start || !end) throw new ServiceError("Invalid date.");
 
+  // HR may file for someone else. Everyone else files for their own record.
+  const onBehalf =
+    hasPermission(user, PERMISSIONS.LEAVES_MANAGE) && input.employeeId;
+  const employeeId = onBehalf ? input.employeeId! : user.employee?.id;
+  if (!employeeId) {
+    throw new ServiceError(
+      "Your user account is not linked to an employee record. Ask an Admin to link it.",
+    );
+  }
+
   const [employee, leaveType] = await Promise.all([
     prisma.employee.findUnique({
-      where: { id: input.employeeId },
-      select: { id: true, isActive: true },
+      where: { id: employeeId },
+      select: {
+        id: true,
+        isActive: true,
+        departmentId: true,
+        designation: { select: { approvalLevel: true } },
+      },
     }),
     prisma.leaveType.findUnique({ where: { id: input.leaveTypeId } }),
   ]);
@@ -175,8 +222,66 @@ export async function createLeaveRequest(
     }
   }
 
-  const approved = input.approveNow;
-  const created = await prisma.leaveRequest.create({
+  // ---- Who approves?
+  const requesterLevel: ApprovalLevel =
+    employee.designation?.approvalLevel ?? "STAFF";
+  const route = resolveApprovalRoute(requesterLevel, days);
+
+  // The Chairman has nobody above them: an Admin records the leave as approved.
+  if (route.approverLevel === null) {
+    if (!hasPermission(user, PERMISSIONS.USERS_MANAGE)) {
+      throw new ServiceError(
+        "The Chairman's leave has no approver in the system. Ask an Admin to record it.",
+      );
+    }
+    const recorded = await prisma.leaveRequest.create({
+      data: {
+        employeeId: employee.id,
+        leaveTypeId: leaveType.id,
+        startDate: start,
+        endDate: end,
+        reason: input.reason ?? null,
+        days,
+        status: "APPROVED",
+        decidedById: user.id,
+        decidedAt: new Date(),
+        requestedById: user.id,
+        routeNote: "Recorded by Admin (Chairman)",
+      },
+    });
+    await reprocessEmployeeRange(employee.id, start, end);
+    return recorded;
+  }
+
+  let approverLevel: ApproverLevel = route.approverLevel;
+  let approverDepartmentId: string | null = null;
+  let routeNote: string | null = null;
+
+  if (route.sameDepartment) {
+    const ddExists = await hasActiveApprover("DD", {
+      departmentId: employee.departmentId,
+      excludeEmployeeId: employee.id,
+    });
+    if (ddExists) {
+      approverDepartmentId = employee.departmentId;
+    } else {
+      // No DD to approve: escalate instead of leaving the request stuck.
+      approverLevel = "CEO";
+      routeNote = "No active DD in this department, sent to the CEO";
+    }
+  }
+
+  const exists = await hasActiveApprover(approverLevel, {
+    excludeEmployeeId: employee.id,
+    ...(approverLevel === "DD" ? { departmentId: approverDepartmentId! } : {}),
+  });
+  if (!exists) {
+    throw new ServiceError(
+      `No active ${APPROVER_LABEL[approverLevel]} account is set up to approve this request. Ask an Admin to link a user to that employee.`,
+    );
+  }
+
+  return prisma.leaveRequest.create({
     data: {
       employeeId: employee.id,
       leaveTypeId: leaveType.id,
@@ -184,14 +289,13 @@ export async function createLeaveRequest(
       endDate: end,
       reason: input.reason ?? null,
       days,
-      status: approved ? "APPROVED" : "PENDING",
-      decidedById: approved ? userId : null,
-      decidedAt: approved ? new Date() : null,
+      status: "PENDING",
+      approverLevel,
+      approverDepartmentId,
+      routeNote,
+      requestedById: user.id,
     },
   });
-
-  if (approved) await reprocessEmployeeRange(employee.id, start, end);
-  return created;
 }
 
 const LEAVE_TRANSITIONS: Record<string, string[]> = {
@@ -202,7 +306,7 @@ const LEAVE_TRANSITIONS: Record<string, string[]> = {
 export async function decideLeaveRequest(
   id: string,
   decision: "APPROVED" | "REJECTED" | "CANCELLED",
-  userId: string,
+  user: AuthUser,
 ) {
   const request = await prisma.leaveRequest.findUnique({
     where: { id },
@@ -216,12 +320,38 @@ export async function decideLeaveRequest(
     );
   }
 
+  // ---- Who may do this?
+  const me = getApproverIdentity(user);
+  const isDesignatedApprover = canDecideRequest(me, request);
+
+  if (decision === "APPROVED" || decision === "REJECTED") {
+    if (!isDesignatedApprover) {
+      throw new ServiceError("You are not the approver for this request.");
+    }
+  } else {
+    const isRequester = me?.employeeId === request.employeeId;
+    const isHr = hasPermission(user, PERMISSIONS.LEAVES_MANAGE);
+    const ownPending = isRequester && request.status === "PENDING";
+    if (!ownPending && !isDesignatedApprover && !isHr) {
+      throw new ServiceError("You cannot cancel this request.");
+    }
+  }
+
   let days = request.days;
   if (decision === "APPROVED") {
     // The calendar may have changed since the request was made: recount and re-check.
     days = await countWorkingDays(request.startDate, request.endDate);
     if (days === 0)
       throw new ServiceError("The request now contains no working days.");
+
+    // A new holiday can move a request across the 3-day line, which changes who approves.
+    const wasShort = request.days <= SHORT_ROUTE_MAX_DAYS;
+    const isShort = days <= SHORT_ROUTE_MAX_DAYS;
+    if (wasShort !== isShort) {
+      throw new ServiceError(
+        `The calendar changed and the request is now ${days} working day(s), which needs a different approver. Cancel it and submit again.`,
+      );
+    }
 
     await assertNoOverlap(
       request.employeeId,
@@ -253,7 +383,7 @@ export async function decideLeaveRequest(
     data: {
       status: decision,
       days,
-      decidedById: userId,
+      decidedById: user.id,
       decidedAt: new Date(),
     },
   });
@@ -271,15 +401,53 @@ export async function decideLeaveRequest(
   return updated;
 }
 
+const requestInclude = {
+  employee: {
+    select: {
+      name: true,
+      employeeCode: true,
+      department: { select: { name: true } },
+    },
+  },
+  leaveType: { select: { name: true } },
+} as const;
+
+/** Requests waiting for this person to decide. Empty unless they are DD, CEO or Chairman. */
+export async function listPendingForApprover(user: AuthUser) {
+  const me = getApproverIdentity(user);
+  if (!me || me.level === "STAFF") return [];
+  return prisma.leaveRequest.findMany({
+    where: {
+      status: "PENDING",
+      approverLevel: me.level,
+      employeeId: { not: me.employeeId },
+      ...(me.level === "DD" ? { approverDepartmentId: me.departmentId } : {}),
+    },
+    orderBy: { startDate: "asc" },
+    take: 200,
+    include: requestInclude,
+  });
+}
+
+export function countPendingForApprover(user: AuthUser) {
+  return listPendingForApprover(user).then((r) => r.length);
+}
+
+export function listMyLeaveRequests(employeeId: string) {
+  return prisma.leaveRequest.findMany({
+    where: { employeeId },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    include: requestInclude,
+  });
+}
+
 export function listLeaveRequests(status?: LeaveRequestStatus) {
   return prisma.leaveRequest.findMany({
     where: status ? { status } : {},
     orderBy: [{ createdAt: "desc" }],
     take: 200,
-    include: {
-      employee: { select: { name: true, employeeCode: true } },
-      leaveType: { select: { name: true } },
-    },
+    include: requestInclude,
   });
 }
 

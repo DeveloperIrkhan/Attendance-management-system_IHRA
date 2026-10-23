@@ -11,6 +11,7 @@ import LeaveStatusBadge from "@/components/LeaveStatusBadge";
 import LeaveRequestForm from "@/components/LeaveRequestForm";
 import RowActionForm from "@/components/RowActionForm";
 import ScrollTable from "@/components/ScrollTable";
+import { APPROVER_LABEL } from "@/lib/leave/approval-routing";
 import { createLeaveRequestAction, decideLeaveRequestAction } from "./actions";
 
 type SearchParams = Promise<{ status?: string }>;
@@ -42,7 +43,7 @@ export default async function LeavesPage({
         open={requests.length === 0}
       >
         <summary className="cursor-pointer font-medium">
-          Add a leave request
+          File a leave request for an employee
         </summary>
         <div className="mt-4">
           {activeTypes.length === 0 ? (
@@ -51,6 +52,7 @@ export default async function LeavesPage({
             </p>
           ) : (
             <LeaveRequestForm
+              submitLabel="Send for approval"
               action={createLeaveRequestAction}
               employees={employees.map((e) => ({
                 id: e.id,
@@ -101,6 +103,7 @@ export default async function LeavesPage({
               <th className="p-3">To</th>
               <th className="p-3">Working days</th>
               <th className="p-3">Status</th>
+              <th className="p-3">Approver</th>
               <th className="p-3">Reason</th>
               <th className="p-3"></th>
             </tr>
@@ -108,7 +111,7 @@ export default async function LeavesPage({
           <tbody className="whitespace-nowrap">
             {requests.length === 0 && (
               <tr>
-                <td colSpan={8} className="p-4 text-center text-zinc-500">
+                <td colSpan={9} className="p-4 text-center text-zinc-500">
                   No leave requests.
                 </td>
               </tr>
@@ -128,28 +131,22 @@ export default async function LeavesPage({
                 <td className="p-3">
                   <LeaveStatusBadge status={r.status} />
                 </td>
+                <td className="p-3">
+                  {r.approverLevel && r.approverLevel !== "STAFF" ? (
+                    APPROVER_LABEL[r.approverLevel]
+                  ) : (
+                    <span className="text-zinc-500">
+                      Made before approval levels
+                    </span>
+                  )}
+                  {r.routeNote && (
+                    <div className="text-xs text-zinc-500">{r.routeNote}</div>
+                  )}
+                </td>
                 <td className="max-w-xs whitespace-normal p-3 text-zinc-600">
                   {r.reason ?? ""}
                 </td>
                 <td className="space-x-2 p-3">
-                  {r.status === "PENDING" && (
-                    <>
-                      <RowActionForm
-                        action={decideLeaveRequestAction}
-                        id={r.id}
-                        label="Approve"
-                        fields={{ decision: "APPROVED" }}
-                      />
-                      <RowActionForm
-                        action={decideLeaveRequestAction}
-                        id={r.id}
-                        label="Reject"
-                        danger
-                        fields={{ decision: "REJECTED" }}
-                        confirmMessage="Reject this request?"
-                      />
-                    </>
-                  )}
                   {(r.status === "PENDING" || r.status === "APPROVED") && (
                     <RowActionForm
                       action={decideLeaveRequestAction}

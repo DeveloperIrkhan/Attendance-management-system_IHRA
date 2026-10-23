@@ -100,8 +100,8 @@ input {
       px-4 py-2 text-sm disabled:opacity-50;
   }
   .green-button-inverse {
-    @apply rounded-md border border-green-800 text-green-800 bg-white
-     hover:bg-green-800
+    @apply rounded-md border border-green-800 text-green-800
+     bg-white hover:bg-green-800
       hover:border hover:border-green-800 hover:text-white
       px-4 py-2 text-sm disabled:opacity-50;
   }
