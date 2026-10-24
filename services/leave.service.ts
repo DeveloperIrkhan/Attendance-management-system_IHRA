@@ -12,6 +12,7 @@ import {
   APPROVER_LABEL,
   SHORT_ROUTE_MAX_DAYS,
   canDecideRequest,
+  levelsAbove,
   resolveApprovalRoute,
   type ApprovalLevel,
   type ApproverLevel,
@@ -146,22 +147,92 @@ async function assertNoOverlap(
   }
 }
 
-/** Is there an active user, linked to an employee with this level, who could decide? */
+/**
+ * Is there an active login for someone who may decide at this level?
+ * Counts the level itself (a DD only inside `departmentId`) and every level above it,
+ * because higher levels hold parent rights.
+ */
 async function hasActiveApprover(
   level: ApproverLevel,
   opts: { departmentId?: string; excludeEmployeeId: string },
 ) {
+  const higher = levelsAbove(level);
   const found = await prisma.employee.findFirst({
     where: {
       id: { not: opts.excludeEmployeeId },
       isActive: true,
-      designation: { approvalLevel: level },
-      ...(opts.departmentId ? { departmentId: opts.departmentId } : {}),
       user: { is: { isActive: true } },
+      OR: [
+        {
+          designation: { approvalLevel: level },
+          ...(level === "DD" && opts.departmentId
+            ? { departmentId: opts.departmentId }
+            : {}),
+        },
+        ...(higher.length
+          ? [{ designation: { approvalLevel: { in: higher } } }]
+          : []),
+      ],
     },
     select: { id: true },
   });
   return Boolean(found);
+}
+
+type RoutePlan = {
+  approverLevel: ApproverLevel;
+  approverDepartmentId: string | null;
+  routeNote: string | null;
+};
+
+/** Decides who must approve, or throws a clear message if nobody can. */
+async function planRoute(
+  employee: {
+    id: string;
+    departmentId: string;
+    designation: { approvalLevel: ApprovalLevel } | null;
+  },
+  days: number,
+): Promise<RoutePlan | "ADMIN_RECORDS"> {
+  const requesterLevel: ApprovalLevel =
+    employee.designation?.approvalLevel ?? "STAFF";
+  const route = resolveApprovalRoute(requesterLevel, days);
+  if (route.approverLevel === null) return "ADMIN_RECORDS";
+
+  let approverLevel: ApproverLevel = route.approverLevel;
+  let approverDepartmentId: string | null = null;
+  let routeNote: string | null = null;
+
+  if (route.sameDepartment) {
+    // Only a DD of this department may decide a short request: otherwise escalate.
+    const ownDd = await prisma.employee.findFirst({
+      where: {
+        id: { not: employee.id },
+        isActive: true,
+        departmentId: employee.departmentId,
+        designation: { approvalLevel: "DD" },
+        user: { is: { isActive: true } },
+      },
+      select: { id: true },
+    });
+    if (ownDd) {
+      approverDepartmentId = employee.departmentId;
+    } else {
+      approverLevel = "CEO";
+      routeNote = "No active DD in this department, sent to the CEO";
+    }
+  }
+
+  const exists = await hasActiveApprover(approverLevel, {
+    excludeEmployeeId: employee.id,
+    ...(approverLevel === "DD" ? { departmentId: approverDepartmentId! } : {}),
+  });
+  if (!exists) {
+    throw new ServiceError(
+      `No active ${APPROVER_LABEL[approverLevel]} login exists for this request. Set the approval level on the designation and make sure that employee is active.`,
+    );
+  }
+  return { approverLevel, approverDepartmentId, routeNote };
 }
 
 export async function createLeaveRequest(
@@ -223,12 +294,10 @@ export async function createLeaveRequest(
   }
 
   // ---- Who approves?
-  const requesterLevel: ApprovalLevel =
-    employee.designation?.approvalLevel ?? "STAFF";
-  const route = resolveApprovalRoute(requesterLevel, days);
+  const plan = await planRoute(employee, days);
 
   // The Chairman has nobody above them: an Admin records the leave as approved.
-  if (route.approverLevel === null) {
+  if (plan === "ADMIN_RECORDS") {
     if (!hasPermission(user, PERMISSIONS.USERS_MANAGE)) {
       throw new ServiceError(
         "The Chairman's leave has no approver in the system. Ask an Admin to record it.",
@@ -253,34 +322,6 @@ export async function createLeaveRequest(
     return recorded;
   }
 
-  let approverLevel: ApproverLevel = route.approverLevel;
-  let approverDepartmentId: string | null = null;
-  let routeNote: string | null = null;
-
-  if (route.sameDepartment) {
-    const ddExists = await hasActiveApprover("DD", {
-      departmentId: employee.departmentId,
-      excludeEmployeeId: employee.id,
-    });
-    if (ddExists) {
-      approverDepartmentId = employee.departmentId;
-    } else {
-      // No DD to approve: escalate instead of leaving the request stuck.
-      approverLevel = "CEO";
-      routeNote = "No active DD in this department, sent to the CEO";
-    }
-  }
-
-  const exists = await hasActiveApprover(approverLevel, {
-    excludeEmployeeId: employee.id,
-    ...(approverLevel === "DD" ? { departmentId: approverDepartmentId! } : {}),
-  });
-  if (!exists) {
-    throw new ServiceError(
-      `No active ${APPROVER_LABEL[approverLevel]} account is set up to approve this request. Ask an Admin to link a user to that employee.`,
-    );
-  }
-
   return prisma.leaveRequest.create({
     data: {
       employeeId: employee.id,
@@ -290,12 +331,57 @@ export async function createLeaveRequest(
       reason: input.reason ?? null,
       days,
       status: "PENDING",
-      approverLevel,
-      approverDepartmentId,
-      routeNote,
+      approverLevel: plan.approverLevel,
+      approverDepartmentId: plan.approverDepartmentId,
+      routeNote: plan.routeNote,
       requestedById: user.id,
     },
   });
+}
+
+/**
+ * Old pending requests made before routing existed have no approver and nobody can decide them.
+ * This gives each of them a route, using the same rules as a new request.
+ */
+export async function rerouteUnroutedRequests() {
+  const stuck = await prisma.leaveRequest.findMany({
+    where: { status: "PENDING", approverLevel: null },
+    include: {
+      employee: {
+        select: {
+          id: true,
+          departmentId: true,
+          designation: { select: { approvalLevel: true } },
+        },
+      },
+    },
+  });
+
+  let routed = 0;
+  const failed: string[] = [];
+  for (const request of stuck) {
+    try {
+      const days = await countWorkingDays(request.startDate, request.endDate);
+      const plan = await planRoute(request.employee, days);
+      if (plan === "ADMIN_RECORDS") {
+        failed.push(`${request.id}: Chairman's leave must be recorded by an Admin`);
+        continue;
+      }
+      await prisma.leaveRequest.update({
+        where: { id: request.id },
+        data: {
+          days,
+          approverLevel: plan.approverLevel,
+          approverDepartmentId: plan.approverDepartmentId,
+          routeNote: plan.routeNote,
+        },
+      });
+      routed++;
+    } catch (e) {
+      failed.push(`${request.id}: ${e instanceof ServiceError ? e.message : "error"}`);
+    }
+  }
+  return { routed, failed };
 }
 
 const LEAVE_TRANSITIONS: Record<string, string[]> = {
@@ -412,16 +498,30 @@ const requestInclude = {
   leaveType: { select: { name: true } },
 } as const;
 
-/** Requests waiting for this person to decide. Empty unless they are DD, CEO or Chairman. */
+/**
+ * Requests waiting for this person to decide: those routed to their own level
+ * (a DD only sees their department) and, by parent rights, those routed to any lower level.
+ * Empty unless they are DD, CEO or Chairman.
+ */
 export async function listPendingForApprover(user: AuthUser) {
   const me = getApproverIdentity(user);
   if (!me || me.level === "STAFF") return [];
+
+  const lowerLevels = (["DD", "CEO", "CHAIRMAN"] as const).filter(
+    (l) => l !== me.level && levelsAbove(l).includes(me.level as ApproverLevel),
+  );
   return prisma.leaveRequest.findMany({
     where: {
       status: "PENDING",
-      approverLevel: me.level,
       employeeId: { not: me.employeeId },
-      ...(me.level === "DD" ? { approverDepartmentId: me.departmentId } : {}),
+      OR: [
+        me.level === "DD"
+          ? { approverLevel: "DD", approverDepartmentId: me.departmentId }
+          : { approverLevel: me.level },
+        ...(lowerLevels.length
+          ? [{ approverLevel: { in: lowerLevels } }]
+          : []),
+      ],
     },
     orderBy: { startDate: "asc" },
     take: 200,

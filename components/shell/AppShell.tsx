@@ -74,7 +74,7 @@ export default function AppShell({
         router.refresh();
       }
     } catch (e) {
-      console.log(e);
+      console.error(e);
     }
   };
   useEffect(() => {
@@ -200,7 +200,7 @@ export default function AppShell({
                       {user.roleName.replaceAll("_", " ").toLowerCase()}
                     </p>
                   </div>
-                  <hr className="border-b border-gray-50"/>
+                  <hr className="border-b border-gray-50" />
                   <Link
                     href="/"
                     onClick={() => setOpen(false)}

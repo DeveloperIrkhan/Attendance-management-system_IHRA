@@ -9,9 +9,10 @@ export const PERMISSIONS = {
   ATTENDANCE_VIEW_OWN: "attendance:view-own",
   ATTENDANCE_SETTINGS: "attendance:settings",
   ATTENDANCE_EDIT: "attendance:edit",
-  LEAVES_MANAGE: "leaves:manage",
-  LEAVES_REQUEST: "leaves:request",
-  LEAVES_APPROVE: "leaves:approve",
+  LEAVES_MANAGE: "leaves:manage", // HR: file on behalf of staff, see everything, cancel
+  LEAVES_REQUEST: "leaves:request", // apply for own leave
+  // Approving leave is not a role permission: it follows the designation's approval level
+  // (DD, CEO, Chairman), see lib/leave/approval-routing.ts.
   REPORTS_VIEW: "reports:view",
   REPORTS_EXPORT: "reports:export",
   BACKUP_MANAGE: "backup:manage",
@@ -42,11 +43,11 @@ export const SYSTEM_ROLES: {
       P.DEPARTMENTS_MANAGE,
       P.ATTENDANCE_IMPORT,
       P.ATTENDANCE_VIEW,
+      P.ATTENDANCE_VIEW_OWN,
       P.ATTENDANCE_EDIT,
       P.ATTENDANCE_SETTINGS,
       P.LEAVES_MANAGE,
       P.LEAVES_REQUEST,
-      P.LEAVES_APPROVE,
       P.REPORTS_VIEW,
       P.REPORTS_EXPORT,
     ],
@@ -58,18 +59,22 @@ export const SYSTEM_ROLES: {
       P.EMPLOYEES_VIEW,
       P.ATTENDANCE_IMPORT,
       P.ATTENDANCE_VIEW,
+      P.ATTENDANCE_VIEW_OWN,
       P.REPORTS_VIEW,
       P.LEAVES_REQUEST,
-      P.LEAVES_APPROVE,
     ],
   },
   {
     name: "EMPLOYEE",
-    description: "Views own attendance",
+    description: "Views own attendance and applies for leave",
     permissions: [P.ATTENDANCE_VIEW_OWN, P.LEAVES_REQUEST],
   },
 ];
+
+// Every role lands on /dashboard: managers see the organization dashboard,
+// employees see their own (MyDashboard).
 export function getHomePath(_permissions: string[]): string {
+  void _permissions;
   return "/dashboard";
 }
 // export function getHomePath(permissions: string[]): string {

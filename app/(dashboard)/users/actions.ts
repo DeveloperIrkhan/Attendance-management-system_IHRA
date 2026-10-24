@@ -4,43 +4,22 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { toActionError, type ActionState } from "@/lib/action-state";
+import { roleChangeSchema } from "@/validations/user.validation";
 import {
-  resetPasswordSchema,
-  userCreateSchema,
-  userUpdateSchema,
-} from "@/validations/user.validation";
-import {
-  createUser,
+  changeUserRole,
   resetUserPassword,
   setUserActive,
-  updateUser,
 } from "@/services/user.service";
 
-export async function createUserAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  await requirePermission(PERMISSIONS.USERS_MANAGE);
-  const parsed = userCreateSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
-  try {
-    await createUser(parsed.data);
-  } catch (e) {
-    return toActionError(e);
-  }
-  revalidatePath("/users");
-  return { ok: true };
-}
-
-export async function updateUserAction(
+export async function changeUserRoleAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   const actor = await requirePermission(PERMISSIONS.USERS_MANAGE);
-  const parsed = userUpdateSchema.safeParse(Object.fromEntries(formData));
+  const parsed = roleChangeSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   try {
-    await updateUser(parsed.data, actor.id);
+    await changeUserRole(parsed.data.id, parsed.data.roleId, actor.id);
   } catch (e) {
     return toActionError(e);
   }
@@ -69,13 +48,12 @@ export async function resetPasswordAction(
   formData: FormData,
 ): Promise<ActionState> {
   await requirePermission(PERMISSIONS.USERS_MANAGE);
-  const parsed = resetPasswordSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Missing user id." };
   try {
-    await resetUserPassword(parsed.data.id, parsed.data.password);
+    const login = await resetUserPassword(id);
+    return { ok: true, login };
   } catch (e) {
     return toActionError(e);
   }
-  revalidatePath("/users");
-  return { ok: true };
 }

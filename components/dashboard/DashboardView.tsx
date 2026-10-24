@@ -7,10 +7,8 @@ import {
   Pencil,
   Plane,
   Upload,
-  UserCheck,
   UserPlus,
   Users,
-  TriangleAlert,
   type LucideIcon,
   FingerprintPattern,
 } from "lucide-react";
@@ -18,9 +16,7 @@ import BarChart from "@/components/charts/BarChart";
 import ChartLegend from "@/components/charts/ChartLegend";
 import DonutChart from "@/components/charts/DonutChart";
 import AttendanceStatusBadge from "@/components/AttendanceStatusBadge";
-import LeaveStatusBadge from "@/components/LeaveStatusBadge";
 import MonthCalendar from "./MonthCalendar";
-import RateBars from "./RateBars";
 import StatCard from "./StatCard";
 import { clockText, monthParam, toIsoDate } from "@/lib/attendance/dates";
 import { MONTHS } from "@/lib/attendance/months";
@@ -40,6 +36,7 @@ type Props = {
   greeting: string;
   firstName: string;
   todayIso: string;
+  scopeLabel?: string;
 };
 
 const card = "rounded-xl border border-slate-200 bg-white  shadow-md";
@@ -84,6 +81,7 @@ export default function DashboardView({
   greeting,
   firstName,
   todayIso,
+  scopeLabel,
 }: Props) {
   const iso = toIsoDate(data.date);
   const { day } = data;
@@ -208,8 +206,13 @@ export default function DashboardView({
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-green-800 tracking-tight">
-              {greeting}, Mr. {firstName}
+              {greeting}, {firstName}
             </h1>
+            {scopeLabel && (
+              <p className="mt-1 text-sm font-medium text-green-800">
+                {scopeLabel}
+              </p>
+            )}
             <p className="mt-1 text-sm text-slate-500">
               Attendance for {longDate(data.date)}
               {iso !== todayIso &&
@@ -304,7 +307,7 @@ export default function DashboardView({
           />
         </section>
 
-       {/* ---------- Overview, summary, calendar ----------  */}
+        {/* ---------- Overview, summary, calendar ----------  */}
         <section className="grid gap-4 xl:grid-cols-12">
           <div className={`${card} p-5 xl:col-span-6`}>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -382,7 +385,7 @@ export default function DashboardView({
           </div>
         </section>
 
-       {/* //---------- Selected day's table, actions, attention ---------- // */}
+        {/* //---------- Selected day's table, actions, attention ---------- // */}
         <section className="grid items-start gap-4 xl:grid-cols-12">
           <div className={`${card} overflow-hidden xl:col-span-9`}>
             <div className="flex items-center justify-between px-5 py-4">

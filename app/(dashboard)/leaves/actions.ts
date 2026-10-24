@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requirePermission } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
+import { requirePermission, requireUser } from "@/lib/auth/authorization";
 import { toActionError, type ActionState } from "@/lib/action-state";
 import {
   decisionSchema,
@@ -17,6 +17,7 @@ import {
   decideLeaveRequest,
   setLeaveTypeActive,
   updateLeaveType,
+  rerouteUnroutedRequests,
 } from "@/services/leave.service";
 import {
   createShortLeave,
@@ -109,11 +110,7 @@ export async function decideLeaveRequestAction(
   formData: FormData,
 ): Promise<ActionState> {
   // The service decides who may approve, reject or cancel this particular request.
-  const user = await requirePermission(
-    PERMISSIONS.LEAVES_APPROVE,
-    PERMISSIONS.LEAVES_REQUEST,
-    PERMISSIONS.LEAVES_MANAGE,
-  );
+  const user = await requireUser();
   const parsed = decisionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Invalid request." };
   try {
@@ -124,7 +121,25 @@ export async function decideLeaveRequestAction(
   refresh();
   return { ok: true };
 }
-
+export async function rerouteUnroutedAction(
+  _prev: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  void _formData;
+  await requirePermission(PERMISSIONS.LEAVES_MANAGE);
+  try {
+    const { routed, failed } = await rerouteUnroutedRequests();
+    refresh();
+    if (failed.length > 0) {
+      return {
+        error: `${routed} request(s) routed, ${failed.length} could not be: ${failed[0]}`,
+      };
+    }
+  } catch (e) {
+    return toActionError(e);
+  }
+  return { ok: true };
+}
 export async function createShortLeaveAction(
   _prev: ActionState,
   formData: FormData,

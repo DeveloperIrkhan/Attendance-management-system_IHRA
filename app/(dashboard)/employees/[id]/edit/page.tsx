@@ -5,8 +5,8 @@ import { getEmployee } from "@/services/employee.service";
 import { listDepartments } from "@/services/department.service";
 import { listDesignations } from "@/services/designation.service";
 import EmployeeForm from "@/components/EmployeeForm";
-import { updateEmployeeAction } from "../../actions";
-
+import { ResetLoginForm } from "@/components/TemporaryLogin";
+import { resetEmployeeLoginAction, updateEmployeeAction } from "../../actions";
 export default async function EditEmployeePage({
   params,
 }: {
@@ -46,6 +46,31 @@ export default async function EditEmployeePage({
             isActive: employee.isActive,
           }}
         />
+        <section className="mt-6 space-y-2 border-t pt-4">
+          <h2 className="font-semibold text-green-800">Login account</h2>
+          {employee.user ? (
+            <p className="text-sm text-slate-600">
+              Signs in with <span className="font-mono">{employee.email}</span>{" "}
+              as {employee.user.role.name}.{" "}
+              {employee.user.mustChangePassword
+                ? "Has not changed the first password yet."
+                : "Has set their own password."}{" "}
+              {employee.user.lastLoginAt
+                ? `Last sign-in: ${employee.user.lastLoginAt.toISOString().slice(0, 16).replace("T", " ")} UTC.`
+                : "Has never signed in."}
+            </p>
+          ) : (
+            <p className="text-sm text-amber-800">
+              This employee has no login yet (added before logins were created
+              automatically).
+            </p>
+          )}
+          <ResetLoginForm
+            action={resetEmployeeLoginAction}
+            id={employee.id}
+            label={employee.user ? "Reset password" : "Create login"}
+          />
+        </section>
       </div>
     </div>
   );

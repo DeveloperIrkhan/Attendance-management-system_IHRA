@@ -6,14 +6,17 @@ import {
   listLeaveRequests,
   listLeaveTypes,
 } from "@/services/leave.service";
+import {
+  createLeaveRequestAction,
+  decideLeaveRequestAction,
+  rerouteUnroutedAction,
+} from "./actions";
 import LeaveTabs from "@/components/LeaveTabs";
 import LeaveStatusBadge from "@/components/LeaveStatusBadge";
 import LeaveRequestForm from "@/components/LeaveRequestForm";
 import RowActionForm from "@/components/RowActionForm";
 import ScrollTable from "@/components/ScrollTable";
 import { APPROVER_LABEL } from "@/lib/leave/approval-routing";
-import { createLeaveRequestAction, decideLeaveRequestAction } from "./actions";
-
 type SearchParams = Promise<{ status?: string }>;
 const STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const;
 
@@ -32,10 +35,28 @@ export default async function LeavesPage({
     listLeaveTypes(),
   ]);
   const activeTypes = types.filter((t) => t.isActive);
+  const stuck = requests.filter(
+    (r) => r.status === "PENDING" && !r.approverLevel,
+  ).length;
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Leaves</h1>
+      <LeaveTabs active="/leaves" />
+
+      {stuck > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+          <span>
+            {stuck} pending request(s) were made before approval levels existed
+            and have no approver.
+          </span>
+          <RowActionForm
+            action={rerouteUnroutedAction}
+            id="reroute"
+            label="Assign approvers now"
+          />
+        </div>
+      )}
       <LeaveTabs active="/leaves" />
 
       <details

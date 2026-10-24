@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Permission } from "./permissions";
 import { NextResponse } from "next/server";
 import type { ApproverIdentity } from "@/lib/leave/approval-routing";
+import { resolveDataScope, type DataScope } from "./data-scope";
 
 // Loads the user fresh from the DB,
 // so deactivation and role changes apply immediately.
@@ -65,6 +66,27 @@ export function getApproverIdentity(user: AuthUser): ApproverIdentity | null {
     departmentId: user.employee.departmentId,
     level: user.employee.designation?.approvalLevel ?? "STAFF",
   };
+}
+
+/**
+ * Whose attendance and leave data this user may see (computed fresh on every request):
+ * everything, their own department (DD), or only themselves. See lib/auth/data-scope.ts.
+ */
+export function getDataScope(user: AuthUser): DataScope {
+  return resolveDataScope({
+    permissions: user.role.permissions,
+    level: user.employee?.designation?.approvalLevel ?? "STAFF",
+    employeeId: user.employee?.id ?? null,
+    departmentId: user.employee?.departmentId ?? null,
+  });
+}
+
+/** For manager views (department / organization data). Plain employees are sent away. */
+export async function requireScope() {
+  const user = await requireUser();
+  const scope = getDataScope(user);
+  if (scope.kind === "SELF") redirect("/unauthorized");
+  return { user, scope };
 }
 
 type ApiAuthResult =

@@ -1,14 +1,14 @@
 import { Suspense } from "react";
-import {
-  getApproverIdentity,
-  hasPermission,
-  requireUser,
-} from "@/lib/auth/authorization";
 import { PERMISSIONS, type Permission } from "@/lib/auth/permissions";
 import AppShell from "@/components/shell/AppShell";
 import { buildNav } from "@/components/shell/nav";
 import { getShellData } from "@/services/dashboard.service";
-import Spinner from "@/components/Spinner";
+import {
+  getApproverIdentity,
+  getDataScope,
+  hasPermission,
+  requireUser,
+} from "@/lib/auth/authorization";
 import { countPendingForApprover } from "@/services/leave.service";
 
 async function AuthShell({ children }: { children: React.ReactNode }) {
@@ -16,8 +16,8 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
   const can = (...p: Permission[]) => hasPermission(user, ...p);
 
   const level = getApproverIdentity(user)?.level ?? "STAFF";
-  const isApprover = level !== "STAFF" && can(PERMISSIONS.LEAVES_APPROVE);
-
+  const isApprover = level !== "STAFF";
+  const scope = getDataScope(user);
   const shell = await getShellData({
     missingPunches: can(PERMISSIONS.ATTENDANCE_EDIT),
     leaves: can(PERMISSIONS.LEAVES_MANAGE),
@@ -28,7 +28,11 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <AppShell
       user={{ fullName: user.fullName, roleName: user.role.name }}
-      sections={buildNav(can, { isApprover })}
+      sections={buildNav(can, {
+        isApprover,
+        scope,
+        hasEmployee: Boolean(user.employeeId),
+      })}
       canSearchEmployees={can(PERMISSIONS.EMPLOYEES_VIEW)}
       notifications={shell.notifications}
       lastImport={shell.lastImport}

@@ -10,6 +10,7 @@ import {
   toRuleConfig,
 } from "@/lib/attendance/attendance-rules";
 import { monthRange, toIsoDate } from "@/lib/attendance/dates";
+import { employeeWhereFor, type DataScope } from "@/lib/auth/data-scope";
 import {
   getMonthCalendar,
   getSettings,
@@ -261,10 +262,13 @@ export async function getLatestAttendanceDate(): Promise<Date | null> {
   const r = await prisma.attendance.aggregate({ _max: { date: true } });
   return r._max.date;
 }
-
-export async function getDailyAttendance(date: Date, departmentId?: string) {
+export async function getDailyAttendance(
+  date: Date,
+  departmentId: string | undefined,
+  scope: DataScope,
+) {
   const records = await prisma.attendance.findMany({
-    where: { date, ...(departmentId ? { employee: { departmentId } } : {}) },
+    where: { date, employee: employeeWhereFor(scope, departmentId) },
     orderBy: { employee: { name: "asc" } },
     include: {
       employee: {

@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { employeeWhereFor, type DataScope } from "@/lib/auth/data-scope";
 import { toMinutes } from "@/lib/attendance/attendance-rules";
 import {
   monthRange,
@@ -39,8 +40,11 @@ const emptyCounts = (): DayCounts => ({
 
 function addStatus(c: DayCounts, status: string) {
   c.records++;
+
   if (status === "WEEKEND" || status === "HOLIDAY") return;
+
   c.expected++;
+
   switch (status) {
     case "PRESENT":
       c.present++;
@@ -150,29 +154,47 @@ export type DashboardData = {
   activity: ActivityItem[];
 };
 
-//Which day the dashboard
-// shows: ?date=, else the latest day of ?month=,
-// else the latest day with data.
+// Determines which day the dashboard displays:
+// 1. Explicit ?date= parameter.
+// 2. Latest attendance date in ?month=.
+// 3. Latest attendance date available to this scope.
+// 4. Today if no attendance exists.
 export async function resolveDashboardDate(
   dateParam?: string,
   monthParam?: string,
+  scope: DataScope = { kind: "ALL" },
 ): Promise<Date> {
+  const employee = employeeWhereFor(scope);
+
   const direct = parseIsoDate(dateParam);
+
   if (direct) return direct;
 
   const period = parseMonthParam(monthParam);
+
   if (period) {
     const { start, end } = monthRange(period.year, period.month);
-    const r = await prisma.attendance.aggregate({
+
+    const result = await prisma.attendance.aggregate({
       _max: { date: true },
-      where: { date: { gte: start, lt: end } },
+      where: {
+        date: { gte: start, lt: end },
+        employee,
+      },
     });
-    return r._max.date ?? start;
+
+    return result._max.date ?? start;
   }
 
-  const latest = await prisma.attendance.aggregate({ _max: { date: true } });
+  const latest = await prisma.attendance.aggregate({
+    _max: { date: true },
+    where: { employee },
+  });
+
   if (latest._max.date) return latest._max.date;
+
   const now = new Date();
+
   return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 }
 
@@ -187,18 +209,21 @@ const PRIORITY: Record<string, number> = {
   HOLIDAY: 6,
 };
 
-export async function getDashboardData(date: Date): Promise<DashboardData> {
+export async function getDashboardData(
+  date: Date,
+  scope: DataScope = { kind: "ALL" },
+  includeSystem = true,
+): Promise<DashboardData> {
   const year = date.getUTCFullYear();
-  const month = date.getUTCMonth() + 1; // 1 because, my months are string from 0, mean 0 for january
+  const month = date.getUTCMonth() + 1;
+  const employee = employeeWhereFor(scope);
+
   const { start, end } = monthRange(year, month);
 
-  const [settings, calendar] = await Promise.all([
-    getSettings(),
-    getMonthCalendar(year, month),
-  ]);
-  const dayTypeOf = makeDayTypeResolver(calendar);
-
+  // Load settings, calendar, and dashboard queries together.
   const [
+    settings,
+    calendar,
     totalEmployees,
     newThisMonth,
     monthRows,
@@ -211,167 +236,292 @@ export async function getDashboardData(date: Date): Promise<DashboardData> {
     recentLeaves,
     lastImport,
   ] = await Promise.all([
-    prisma.employee.count({ where: { isActive: true } }),
+    getSettings(),
+    getMonthCalendar(year, month),
+
+    // Active employees visible within this scope.
     prisma.employee.count({
-      where: { isActive: true, joiningDate: { gte: start, lt: end } },
+      where: {
+        isActive: true,
+        ...employee,
+      },
     }),
+
+    // Employees who joined during the selected month.
+    prisma.employee.count({
+      where: {
+        isActive: true,
+        joiningDate: { gte: start, lt: end },
+        ...employee,
+      },
+    }),
+
+    // Attendance records for the selected month.
     prisma.attendance.findMany({
-      where: { date: { gte: start, lt: end } },
+      where: {
+        date: { gte: start, lt: end },
+        employee,
+      },
       select: {
         date: true,
         status: true,
         checkIn: true,
-        employee: { select: { department: { select: { name: true } } } },
+        employee: {
+          select: {
+            department: {
+              select: { name: true },
+            },
+          },
+        },
       },
     }),
+
+    // Attendance records for the selected day.
     prisma.attendance.findMany({
-      where: { date },
+      where: {
+        date,
+        employee,
+      },
       include: {
         employee: {
           select: {
             name: true,
             employeeCode: true,
-            department: { select: { name: true } },
+            department: {
+              select: { name: true },
+            },
           },
         },
       },
     }),
+
+    // Missing punches visible within this scope.
     prisma.attendance.count({
-      where: { status: "INCOMPLETE", isManual: false },
+      where: {
+        status: "INCOMPLETE",
+        isManual: false,
+        employee,
+      },
     }),
-    prisma.leaveRequest.count({ where: { status: "PENDING" } }),
-    prisma.shortLeave.count({ where: { status: "PENDING" } }),
-    prisma.importBatch.count({
-      where: { processedAt: null, successfulRows: { gt: 0 } },
+
+    prisma.leaveRequest.count({
+      where: {
+        status: "PENDING",
+        employee,
+      },
     }),
-    prisma.importedAttendanceRow.count({ where: { employeeId: null } }),
+
+    prisma.shortLeave.count({
+      where: {
+        status: "PENDING",
+        employee,
+      },
+    }),
+
+    // System-level import statistics are optional.
+    includeSystem
+      ? prisma.importBatch.count({
+          where: {
+            processedAt: null,
+            successfulRows: { gt: 0 },
+          },
+        })
+      : Promise.resolve(0),
+
+    includeSystem
+      ? prisma.importedAttendanceRow.count({
+          where: { employeeId: null },
+        })
+      : Promise.resolve(0),
+
+    // Recent leave requests for employees in this scope.
     prisma.leaveRequest.findMany({
+      where: { employee },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: {
-        employee: { select: { name: true, employeeCode: true } },
-        leaveType: { select: { name: true } },
+        employee: {
+          select: {
+            name: true,
+            employeeCode: true,
+          },
+        },
+        leaveType: {
+          select: { name: true },
+        },
       },
     }),
-    prisma.importBatch.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: {
-        fileName: true,
-        month: true,
-        year: true,
-        status: true,
-        createdAt: true,
-      },
-    }),
+
+    includeSystem
+      ? prisma.importBatch.findFirst({
+          orderBy: { createdAt: "desc" },
+          select: {
+            fileName: true,
+            month: true,
+            year: true,
+            status: true,
+            createdAt: true,
+          },
+        })
+      : Promise.resolve(null),
   ]);
 
-  //Attendance statistics for each day
+  // Determine working days, weekends, and holidays.
+  const dayTypeOf = makeDayTypeResolver(calendar);
+
+  // Attendance statistics for each day.
   const perDay = new Map<string, DayCounts>();
-  //groups attendance statistics by department.
-  //   Attendance statistics for each department
+
+  // Attendance statistics grouped by department.
   const perDept = new Map<string, { attended: number; expected: number }>();
+
   const monthTotals = emptyCounts();
-  //Starting point for the check-in time chart
+
+  // Starting point for the check-in time chart.
   const histStart = Math.max(
     0,
     Math.floor((toMinutes(settings.shiftStart) - 60) / 15) * 15,
   );
-  //Number of regular time intervals
-  const binCount = 16; // 15-minute bins over four hours
-  //Number of check-ins in each interval
-  // [early, ...bins, late]
+
+  // Sixteen 15-minute intervals, plus early and late bins.
+  const binCount = 16;
   const histCounts = new Array<number>(binCount + 2).fill(0);
-  //Determines which interval a check-in belongs to
-  const binOf = (m: number) =>
-    m < histStart
+
+  const binOf = (minutes: number) =>
+    minutes < histStart
       ? 0
-      : Math.min(binCount + 1, Math.floor((m - histStart) / 15) + 1);
+      : Math.min(binCount + 1, Math.floor((minutes - histStart) / 15) + 1);
 
-  for (const r of monthRows) {
-    const iso = toIsoDate(r.date);
-    const c = perDay.get(iso) ?? emptyCounts();
-    addStatus(c, r.status);
-    perDay.set(iso, c);
-    addStatus(monthTotals, r.status);
+  // Process monthly attendance.
+  for (const record of monthRows) {
+    const iso = toIsoDate(record.date);
 
-    if (r.status !== "WEEKEND" && r.status !== "HOLIDAY") {
-      const dept = r.employee.department.name;
-      const d = perDept.get(dept) ?? { attended: 0, expected: 0 };
-      if (ATTENDED.has(r.status)) d.attended++;
-      if (r.status !== "ON_LEAVE") d.expected++;
-      perDept.set(dept, d);
+    const counts = perDay.get(iso) ?? emptyCounts();
+
+    addStatus(counts, record.status);
+    perDay.set(iso, counts);
+
+    addStatus(monthTotals, record.status);
+
+    if (record.status !== "WEEKEND" && record.status !== "HOLIDAY") {
+      const departmentName = record.employee.department.name;
+
+      const department = perDept.get(departmentName) ?? {
+        attended: 0,
+        expected: 0,
+      };
+
+      if (ATTENDED.has(record.status)) {
+        department.attended++;
+      }
+
+      if (record.status !== "ON_LEAVE") {
+        department.expected++;
+      }
+
+      perDept.set(departmentName, department);
     }
 
-    if (r.checkIn && ATTENDED.has(r.status)) {
-      histCounts[
-        binOf(r.checkIn.getUTCHours() * 60 + r.checkIn.getUTCMinutes())
-      ]++;
+    // Include attended records in the check-in histogram.
+    if (record.checkIn && ATTENDED.has(record.status)) {
+      const minutes =
+        record.checkIn.getUTCHours() * 60 + record.checkIn.getUTCMinutes();
+
+      histCounts[binOf(minutes)]++;
     }
   }
 
+  // Map holiday dates to their titles.
   const holidayByIso = new Map(
-    calendar.holidays.map((h) => [toIsoDate(h.date), h.title]),
+    calendar.holidays.map((holiday) => [
+      toIsoDate(holiday.date),
+      holiday.title,
+    ]),
   );
+
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
   const series: SeriesPoint[] = [];
   const calendarOut: DashboardData["calendar"] = {};
-  for (let day = 1; day <= daysInMonth; day++) {
-    const d = new Date(Date.UTC(year, month - 1, day));
-    const iso = toIsoDate(d);
-    const c = perDay.get(iso) ?? emptyCounts();
-    const type = dayTypeOf(d);
+
+  // Build the daily chart and calendar.
+  for (let dayNumber = 1; dayNumber <= daysInMonth; dayNumber++) {
+    const currentDate = new Date(Date.UTC(year, month - 1, dayNumber));
+
+    const iso = toIsoDate(currentDate);
+    const counts = perDay.get(iso) ?? emptyCounts();
+    const type = dayTypeOf(currentDate);
+
     series.push({
       iso,
-      day,
+      day: dayNumber,
       isOff: type !== "WORKING",
-      present: c.present,
-      late: c.shortLeave + c.halfDay,
-      absent: c.absent,
-      missing: c.missingPunch,
-      leave: c.onLeave,
+      present: counts.present,
+      late: counts.shortLeave + counts.halfDay,
+      absent: counts.absent,
+      missing: counts.missingPunch,
+      leave: counts.onLeave,
     });
 
-    const attended = c.present + c.shortLeave + c.halfDay;
+    const attended = counts.present + counts.shortLeave + counts.halfDay;
+
     if (type === "HOLIDAY") {
       calendarOut[iso] = {
         tone: "holiday",
         title: `Holiday: ${holidayByIso.get(iso) ?? ""}`,
       };
     } else if (type === "WEEKEND") {
-      calendarOut[iso] = { tone: "off", title: "Weekly off" };
-    } else if (c.expected === 0) {
-      calendarOut[iso] = { tone: "none", title: "No attendance data" };
+      calendarOut[iso] = {
+        tone: "off",
+        title: "Weekly off",
+      };
+    } else if (counts.expected === 0) {
+      calendarOut[iso] = {
+        tone: "none",
+        title: "No attendance data",
+      };
     } else {
-      const base = Math.max(1, c.expected - c.onLeave);
+      const base = Math.max(1, counts.expected - counts.onLeave);
+
       const rate = attended / base;
+
       calendarOut[iso] = {
         tone: rate >= 0.9 ? "good" : rate >= 0.75 ? "fair" : "poor",
-        title: `${attended} attended, ${c.absent} absent, ${c.missingPunch} missing punch, ${c.onLeave} on leave`,
+        title: `${attended} attended, ${counts.absent} absent, ${counts.missingPunch} missing punch, ${counts.onLeave} on leave`,
       };
     }
   }
 
-  /* ---- histogram labels ---- */
-  const hh = (m: number) =>
-    `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-  const labels = [`<${hh(histStart)}`];
-  for (let i = 0; i < binCount; i++) labels.push(hh(histStart + i * 15));
-  labels.push(`${hh(histStart + binCount * 15)}+`);
-  const lateAfter = toMinutes(settings.shiftStart) + settings.graceMinutes;
-  const markerAfter = binOf(lateAfter);
-  const histTotal = histCounts.reduce((a, b) => a + b, 0);
+  // Histogram labels.
+  const hh = (minutes: number) =>
+    `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(
+      minutes % 60,
+    ).padStart(2, "0")}`;
 
-  /* ---- selected day's table ---- */
+  const labels = [`<${hh(histStart)}`];
+
+  for (let index = 0; index < binCount; index++) {
+    labels.push(hh(histStart + index * 15));
+  }
+
+  labels.push(`${hh(histStart + binCount * 15)}+`);
+
+  const lateAfter = toMinutes(settings.shiftStart) + settings.graceMinutes;
+
+  const markerAfter = binOf(lateAfter);
+
+  const histTotal = histCounts.reduce((total, count) => total + count, 0);
+
+  // Selected day's attendance table.
   const todayAll: TodayRow[] = dayRows
-    .map((r) => ({
-      id: r.id,
-      code: r.employee.employeeCode,
-      name: r.employee.name,
-      department: r.employee.department.name,
-      status: r.status,
-      checkIn: r.checkIn,
-      checkOut: r.checkOut,
+    .map((record) => ({
+      id: record.id,
+      code: record.employee.employeeCode,
+      name: record.employee.name,
+      department: record.employee.department.name,
+      status: record.status,
+      checkIn: record.checkIn,
+      checkOut: record.checkOut,
     }))
     .sort(
       (a, b) =>
@@ -380,21 +530,26 @@ export async function getDashboardData(date: Date): Promise<DashboardData> {
     );
 
   const day = emptyCounts();
-  for (const r of dayRows) addStatus(day, r.status);
 
+  for (const record of dayRows) {
+    addStatus(day, record.status);
+  }
+
+  // Department attendance rates.
   const departments = [...perDept.entries()]
-    .map(([name, v]) => ({
+    .map(([name, value]) => ({
       name,
-      attended: v.attended,
-      expected: v.expected,
+      attended: value.attended,
+      expected: value.expected,
       rate:
-        v.expected > 0
-          ? Math.round((v.attended / v.expected) * 1000) / 10
+        value.expected > 0
+          ? Math.round((value.attended / value.expected) * 1000) / 10
           : null,
     }))
     .sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1));
 
-  const activity = await getRecentActivity();
+  // Only load system activity when authorized by the caller.
+  const activity = includeSystem ? await getRecentActivity() : [];
 
   return {
     date,
@@ -426,21 +581,23 @@ export async function getDashboardData(date: Date): Promise<DashboardData> {
       unprocessedBatches,
       unmatchedRows,
     },
-    recentLeaves: recentLeaves.map((l) => ({
-      id: l.id,
-      employee: l.employee.name,
-      code: l.employee.employeeCode,
-      type: l.leaveType.name,
-      from: l.startDate,
-      to: l.endDate,
-      status: l.status,
+    recentLeaves: recentLeaves.map((leave) => ({
+      id: leave.id,
+      employee: leave.employee.name,
+      code: leave.employee.employeeCode,
+      type: leave.leaveType.name,
+      from: leave.startDate,
+      to: leave.endDate,
+      status: leave.status,
     })),
     lastImport,
     activity,
   };
 }
 
-/* ---------- Recent activity, assembled from existing records (no audit table needed yet) ---------- */
+/* -------------------------------------------------------
+   Recent activity
+   ------------------------------------------------------- */
 
 async function getRecentActivity(): Promise<ActivityItem[]> {
   const [batches, decidedLeaves, newEmployees, corrections] = await Promise.all(
@@ -453,9 +610,12 @@ async function getRecentActivity(): Promise<ActivityItem[]> {
           fileName: true,
           createdAt: true,
           processedAt: true,
-          uploadedBy: { select: { fullName: true } },
+          uploadedBy: {
+            select: { fullName: true },
+          },
         },
       }),
+
       prisma.leaveRequest.findMany({
         where: { decidedAt: { not: null } },
         orderBy: { decidedAt: "desc" },
@@ -465,114 +625,162 @@ async function getRecentActivity(): Promise<ActivityItem[]> {
           status: true,
           decidedAt: true,
           decidedById: true,
-          employee: { select: { name: true } },
+          employee: {
+            select: { name: true },
+          },
         },
       }),
+
       prisma.employee.findMany({
         orderBy: { createdAt: "desc" },
         take: 3,
-        select: { id: true, name: true, createdAt: true },
+        select: {
+          id: true,
+          name: true,
+          createdAt: true,
+        },
       }),
+
       prisma.attendance.findMany({
-        where: { isManual: true, editedAt: { not: null } },
+        where: {
+          isManual: true,
+          editedAt: { not: null },
+        },
         orderBy: { editedAt: "desc" },
         take: 3,
         select: {
           id: true,
           editedAt: true,
           editedById: true,
-          employee: { select: { name: true } },
+          employee: {
+            select: { name: true },
+          },
         },
       }),
     ],
   );
 
   const userIds = [
-    ...decidedLeaves.map((l) => l.decidedById),
-    ...corrections.map((c) => c.editedById),
-  ].filter((x): x is string => Boolean(x));
+    ...decidedLeaves.map((leave) => leave.decidedById),
+    ...corrections.map((record) => record.editedById),
+  ].filter((id): id is string => Boolean(id));
+
   const users = userIds.length
     ? await prisma.user.findMany({
-        where: { id: { in: [...new Set(userIds)] } },
-        select: { id: true, fullName: true },
+        where: {
+          id: { in: [...new Set(userIds)] },
+        },
+        select: {
+          id: true,
+          fullName: true,
+        },
       })
     : [];
+
   const nameOf = (id: string | null) =>
-    users.find((u) => u.id === id)?.fullName ?? "HR";
+    users.find((user) => user.id === id)?.fullName ?? "HR";
 
   const items: ActivityItem[] = [];
-  for (const b of batches) {
+
+  for (const batch of batches) {
     items.push({
-      id: `imp-${b.id}`,
+      id: `imp-${batch.id}`,
       kind: "import",
       title: "Excel file imported",
-      detail: `${b.fileName}${b.uploadedBy ? `, by ${b.uploadedBy.fullName}` : ""}`,
-      at: b.createdAt,
+      detail: `${batch.fileName}${
+        batch.uploadedBy ? `, by ${batch.uploadedBy.fullName}` : ""
+      }`,
+      at: batch.createdAt,
     });
-    if (b.processedAt) {
+
+    if (batch.processedAt) {
       items.push({
-        id: `proc-${b.id}`,
+        id: `proc-${batch.id}`,
         kind: "process",
         title: "Attendance processing completed",
-        detail: b.fileName,
-        at: b.processedAt,
+        detail: batch.fileName,
+        at: batch.processedAt,
       });
     }
   }
-  for (const l of decidedLeaves) {
+
+  for (const leave of decidedLeaves) {
     items.push({
-      id: `leave-${l.id}`,
+      id: `leave-${leave.id}`,
       kind: "leave",
-      title: `Leave ${l.status.toLowerCase()}`,
-      detail: `${l.employee.name}, by ${nameOf(l.decidedById)}`,
-      at: l.decidedAt!,
+      title: `Leave ${leave.status.toLowerCase()}`,
+      detail: `${leave.employee.name}, by ${nameOf(leave.decidedById)}`,
+      at: leave.decidedAt!,
     });
   }
-  for (const e of newEmployees) {
+
+  for (const employee of newEmployees) {
     items.push({
-      id: `emp-${e.id}`,
+      id: `emp-${employee.id}`,
       kind: "employee",
       title: "New employee added",
-      detail: e.name,
-      at: e.createdAt,
+      detail: employee.name,
+      at: employee.createdAt,
     });
   }
-  for (const c of corrections) {
+
+  for (const correction of corrections) {
     items.push({
-      id: `fix-${c.id}`,
+      id: `fix-${correction.id}`,
       kind: "correction",
       title: "Attendance corrected",
-      detail: `${c.employee.name}, by ${nameOf(c.editedById)}`,
-      at: c.editedAt!,
+      detail: `${correction.employee.name}, by ${nameOf(
+        correction.editedById,
+      )}`,
+      at: correction.editedAt!,
     });
   }
+
   return items.sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 6);
 }
+
+/* -------------------------------------------------------
+   Application shell notifications
+   ------------------------------------------------------- */
 
 export async function getShellData(want: {
   missingPunches: boolean;
   leaves: boolean;
-  /** leave requests waiting for this person to approve */
+  /** Leave requests waiting for this person to approve. */
   approvals?: number;
   imports: boolean;
 }) {
   const [missing, leaves, shorts, lastImport] = await Promise.all([
     want.missingPunches
       ? prisma.attendance.count({
-          where: { status: "INCOMPLETE", isManual: false },
+          where: {
+            status: "INCOMPLETE",
+            isManual: false,
+          },
         })
-      : 0,
-    // Full-day leave is now approved by the chain (DD / CEO / Chairman), not by HR,
-    // so it is counted for approvers through `approvals`, not here.
+      : Promise.resolve(0),
+
+    // Full-day leave approvals are counted separately.
     Promise.resolve(0),
-    want.leaves ? prisma.shortLeave.count({ where: { status: "PENDING" } }) : 0,
+
+    want.leaves
+      ? prisma.shortLeave.count({
+          where: { status: "PENDING" },
+        })
+      : Promise.resolve(0),
+
     want.imports
       ? prisma.importBatch.findFirst({
           orderBy: { createdAt: "desc" },
-          select: { month: true, year: true, status: true },
+          select: {
+            month: true,
+            year: true,
+            status: true,
+          },
         })
-      : null,
+      : Promise.resolve(null),
   ]);
+
   return {
     notifications: missing + leaves + shorts + (want.approvals ?? 0),
     lastImport,

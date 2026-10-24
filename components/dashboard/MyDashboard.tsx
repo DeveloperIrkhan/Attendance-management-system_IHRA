@@ -1,10 +1,12 @@
 import Link from "next/link";
 import {
+  CircleAlert,
   CircleCheck,
   CircleX,
+  ClipboardList,
   Clock,
   Plane,
-  ClipboardList,
+  Timer,
 } from "lucide-react";
 
 import BarChart from "@/components/charts/BarChart";
@@ -14,68 +16,20 @@ import LeaveStatusBadge from "@/components/LeaveStatusBadge";
 import MonthCalendar from "./MonthCalendar";
 import StatCard from "./StatCard";
 
-import { clockText, toIsoDate } from "@/lib/attendance/dates";
+import { clockText, monthParam } from "@/lib/attendance/dates";
+import { formatMinutes } from "@/lib/attendance/duration";
 import { MONTHS } from "@/lib/attendance/months";
 import { STATUS_COLORS } from "@/lib/attendance/colors";
-
-// Data specifically for the logged-in employee.
-const now = new Date();
-const hour = now.getHours();
-const greeting =
-  hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-
-export type MyDashboardData = {
-  employee: {
-    employeeCode: string;
-    department: string;
-    designation: string;
-  };
-
-  year: number;
-  month: number;
-  date: Date;
-  todayIso: string;
-
-  summary: {
-    present: number;
-    late: number;
-    absent: number;
-    onLeave: number;
-    shortLeave: number;
-    halfDay: number;
-  };
-
-  series: {
-    day: number;
-    present: number;
-    late: number;
-    absent: number;
-    leave: number;
-  }[];
-
-  calendar: Record<string, { title?: string }>;
-
-  attendance: {
-    id: string;
-    date: Date;
-    status: string;
-    checkIn: Date | null;
-    checkOut: Date | null;
-  }[];
-
-  leaveRequests: {
-    id: string;
-    type: string;
-    from: Date;
-    to: Date;
-    status: string;
-  }[];
-};
+import { APPROVER_LABEL } from "@/lib/leave/approval-routing";
+import type { MyDashboardData } from "@/services/my-dashboard.service";
 
 type Props = {
   data: MyDashboardData;
   fullName: string;
+  basePath?: string;
 };
+//page this component is shown on: the day and month pickers
+//and the calendar link back to it
 
 const card = "rounded-xl border border-slate-200 bg-white shadow-md";
 
@@ -95,58 +49,111 @@ const shortDate = (date: Date) =>
     timeZone: "UTC",
   });
 
-export default function MyDashboard({ data, fullName }: Props) {
-  const monthLabel = `${MONTHS[data.month - 1]} ${data.year}`;
+function greetingNow() {
+  // Worked out on every request (not once when the server starts).
+  const hour = new Date().getHours();
+  return hour < 12
+    ? "Good morning"
+    : hour < 17
+      ? "Good afternoon"
+      : "Good evening";
+}
 
-  const attended =
-    data.summary.present +
-    data.summary.late +
-    data.summary.shortLeave +
-    data.summary.halfDay;
+function DayNote({ day }: { day: MyDashboardData["selected"] }) {
+  if (day.status === "INCOMPLETE") {
+    return (
+      <p className="rounded-md bg-purple-50 p-3 text-sm text-purple-800">
+        Only one punch was recorded for this day, so it counts as absent until
+        HR corrects it. Please contact HR and tell them your real check-in and
+        check-out times.
+      </p>
+    );
+  }
+  if (day.status === "HOLIDAY") {
+    return (
+      <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+        Holiday{day.note ? `: ${day.note}` : ""}.
+      </p>
+    );
+  }
+  if (day.status === "WEEKEND") {
+    return (
+      <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+        Weekly off day.
+      </p>
+    );
+  }
+  if (day.status === "NO_RECORD") {
+    return (
+      <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+        No attendance has been imported for this day yet.
+      </p>
+    );
+  }
+  if (day.status === "ABSENT") {
+    return (
+      <p className="rounded-md bg-red-50 p-3 text-sm text-red-800">
+        No punch was recorded on a working day. If you were present, contact HR.
+      </p>
+    );
+  }
+  if (day.note) {
+    return (
+      <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+        {day.note}
+        {day.isManual ? " (corrected by HR)" : ""}
+      </p>
+    );
+  }
+  return null;
+}
+
+export default function MyDashboard({
+  data,
+  fullName,
+  basePath = "/dashboard",
+}: Props) {
+  const { summary, selected } = data;
+  const monthLabel = `${MONTHS[data.month - 1]} ${data.year}`;
+  const selectedIso = selected.iso;
 
   const donutSegments = [
+    { label: "On time", value: summary.present, color: STATUS_COLORS.present },
+    { label: "Late", value: summary.lateDays, color: STATUS_COLORS.late },
+    { label: "Absent", value: summary.absent, color: STATUS_COLORS.absent },
+    { label: "On leave", value: summary.onLeave, color: STATUS_COLORS.leave },
     {
-      label: "Present",
-      value: data.summary.present,
-      color: STATUS_COLORS.present,
-    },
-    {
-      label: "Late",
-      value: data.summary.late,
-      color: STATUS_COLORS.late,
-    },
-    {
-      label: "Absent",
-      value: data.summary.absent,
-      color: STATUS_COLORS.absent,
-    },
-    {
-      label: "On leave",
-      value: data.summary.onLeave,
-      color: STATUS_COLORS.leave,
+      label: "Missing punch",
+      value: summary.missingPunch,
+      color: STATUS_COLORS.missing,
     },
   ];
 
   const series = [
     {
-      name: "Present",
+      name: "On time",
       color: STATUS_COLORS.present,
-      values: data.series.map((day) => day.present),
+      values: data.series.map((d) => d.present),
     },
     {
       name: "Late",
       color: STATUS_COLORS.late,
-      values: data.series.map((day) => day.late),
+      values: data.series.map((d) => d.late),
     },
     {
       name: "Absent",
       color: STATUS_COLORS.absent,
-      values: data.series.map((day) => day.absent),
+      values: data.series.map((d) => d.absent),
     },
     {
       name: "On leave",
       color: STATUS_COLORS.leave,
-      values: data.series.map((day) => day.leave),
+      values: data.series.map((d) => d.leave),
+    },
+    {
+      name: "Missing punch",
+      color: STATUS_COLORS.missing,
+      values: data.series.map((d) => d.missing),
     },
   ];
 
@@ -156,91 +163,214 @@ export default function MyDashboard({ data, fullName }: Props) {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-wide text-green-800">
-            <span className="text-black!">{greeting}!</span>
-            {"  "}
-            <span className="capitalize">{fullName}.</span>
+            <span className="text-black!">{greetingNow()},</span>{" "}
+            <span className="capitalize">{fullName}</span>
           </h1>
-
           <p className="mt-1 text-sm text-slate-500">
-            Your personal attendance dashboard for
-            <span className="tracking-wider text-green-800"> {monthLabel}</span>
+            Your personal attendance for{" "}
+            <span className="tracking-wider text-green-800">{monthLabel}</span>
           </p>
-
-          <p className="mt-1 text-sm text-slate-500 flex gap-2">
-            <span className="font-semibold text-slate-800">Employee Code:</span>
-            {data.employee.employeeCode}
-            <span className="font-semibold text-slate-800">
-              Employee Dept :
+          <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+            <span>
+              <span className="font-semibold text-slate-800">Code:</span>{" "}
+              {data.employee.employeeCode}
             </span>
-            {data.employee.department}
+            <span>
+              <span className="font-semibold text-slate-800">Department:</span>{" "}
+              {data.employee.department}
+            </span>
+            {data.employee.designation && (
+              <span>
+                <span className="font-semibold text-slate-800">
+                  Designation:
+                </span>{" "}
+                {data.employee.designation}
+              </span>
+            )}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <Link
-            href="/attendance/my"
+            href={`/attendance/my?month=${monthParam(data.year, data.month)}`}
             className="rounded-lg green-button-inverse hoverEffect"
           >
-            My Attendance
+            Full month table
           </Link>
-
           <Link href="/leaves/request" className="green-button hoverEffect">
             + Request Leave
           </Link>
         </div>
       </div>
 
-      {/* Personal summary cards */}
+      {/* Pick a day or a month */}
+      <section className={`${card} flex flex-wrap items-end gap-6 p-4`}>
+        <form method="get" action={basePath} className="flex items-end gap-2">
+          <div className="space-y-1">
+            <label htmlFor="my-date" className="text-sm font-medium">
+              Show a day
+            </label>
+            <input
+              id="my-date"
+              type="date"
+              name="date"
+              required
+              defaultValue={selectedIso}
+              className="block rounded border px-3 py-2 custom-input"
+            />
+          </div>
+          <button type="submit" className="green-button hoverEffect">
+            Show day
+          </button>
+        </form>
+
+        <form method="get" action="/dashboard" className="flex items-end gap-2">
+          <div className="space-y-1">
+            <label htmlFor="my-month" className="text-sm font-medium">
+              Show a month
+            </label>
+            <input
+              id="my-month"
+              type="month"
+              name="month"
+              required
+              defaultValue={monthParam(data.year, data.month)}
+              className="block rounded border px-3 py-2 custom-input"
+            />
+          </div>
+          <button type="submit" className="green-button hoverEffect">
+            Show month
+          </button>
+        </form>
+      </section>
+
+      {/* Selected day */}
+      <section className={`${card} space-y-4 p-5`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">{longDate(data.date)}</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Your record for this day
+            </p>
+          </div>
+          <AttendanceStatusBadge status={selected.status} />
+        </div>
+
+        <dl className="grid gap-4 text-sm sm:grid-cols-3 xl:grid-cols-6">
+          <div>
+            <dt className="text-slate-500">Check in</dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums">
+              {clockText(selected.checkIn)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Check out</dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums">
+              {clockText(selected.checkOut)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Time worked</dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums">
+              {selected.checkIn && selected.checkOut
+                ? formatMinutes(selected.workingMinutes)
+                : "-"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Late by</dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums">
+              {selected.lateMinutes > 0
+                ? formatMinutes(selected.lateMinutes)
+                : "-"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Left early by</dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums">
+              {selected.earlyLeaveMinutes > 0
+                ? formatMinutes(selected.earlyLeaveMinutes)
+                : "-"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Overtime</dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums">
+              {selected.overtimeMinutes > 0
+                ? formatMinutes(selected.overtimeMinutes)
+                : "-"}
+            </dd>
+          </div>
+        </dl>
+
+        <DayNote day={selected} />
+      </section>
+
+      {/* Month summary cards */}
       <section
-        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
-        aria-label="My attendance summary"
+        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        aria-label="My monthly summary"
       >
         <StatCard
           tint="green"
           icon={<CircleCheck size={22} aria-hidden />}
-          label="Present"
-          value={attended}
-          sub="Days attended this month"
+          label="Days attended"
+          value={summary.attended}
+          sub={`${summary.present} on time, ${summary.lateDays} late`}
         />
-
         <StatCard
           tint="red"
           icon={<CircleX size={22} aria-hidden />}
           label="Absent"
-          value={data.summary.absent}
-          sub="Days marked absent"
+          value={summary.absent}
+          sub="Working days with no punch"
         />
-
         <StatCard
           tint="amber"
           icon={<Clock size={22} aria-hidden />}
-          label="Late"
-          value={data.summary.late}
-          sub="Late arrivals this month"
+          label="Late arrivals"
+          value={summary.lateDays}
+          sub={`${summary.shortLeave} short leave, ${summary.halfDay} half day · ${formatMinutes(summary.lateMinutes)} late in total`}
         />
-
+        <StatCard
+          tint="amber"
+          icon={<CircleAlert size={22} aria-hidden />}
+          label="Missing punch"
+          value={summary.missingPunch}
+          sub={
+            summary.missingPunch > 0
+              ? "Contact HR to correct these days"
+              : "Nothing to correct"
+          }
+        />
         <StatCard
           tint="blue"
           icon={<Plane size={22} aria-hidden />}
           label="On leave"
-          value={data.summary.onLeave}
-          sub="Attendance days marked as leave"
+          value={summary.onLeave}
+          sub="Approved leave days"
+        />
+        <StatCard
+          tint="green"
+          icon={<Timer size={22} aria-hidden />}
+          label="Overtime"
+          value={formatMinutes(summary.overtimeMinutes)}
+          sub={`${formatMinutes(summary.workingMinutes)} worked in total`}
         />
       </section>
 
-      {/* Attendance chart and calendar */}
+      {/* Chart, donut and calendar */}
       <section className="grid gap-4 xl:grid-cols-12">
         <div className={`${card} p-5 xl:col-span-6`}>
           <div className="mb-3">
             <h2 className="font-semibold">My attendance overview</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Daily attendance for {monthLabel}
+              Day by day for {monthLabel}
             </p>
           </div>
-
           <BarChart
             ariaLabel={`My attendance for ${monthLabel}`}
-            labels={data.series.map((day) => String(day.day))}
+            labels={data.series.map((d) => String(d.day))}
             series={series}
             labelEvery={2}
             height={300}
@@ -249,14 +379,12 @@ export default function MyDashboard({ data, fullName }: Props) {
 
         <div className={`${card} p-5 xl:col-span-3`}>
           <h2 className="mb-3 font-semibold">Monthly summary</h2>
-
           <DonutChart
             ariaLabel={`My attendance summary for ${monthLabel}`}
             segments={donutSegments}
             centerLabel="Attended"
-            centerValue={attended}
+            centerValue={summary.attended}
           />
-
           <ul className="mt-4 space-y-2 text-sm">
             {donutSegments.map((segment) => (
               <li
@@ -270,12 +398,17 @@ export default function MyDashboard({ data, fullName }: Props) {
                   />
                   {segment.label}
                 </span>
-
                 <span className="tabular-nums text-slate-600">
                   {segment.value}
                 </span>
               </li>
             ))}
+            <li className="flex items-center justify-between gap-2 border-t pt-2 text-slate-500">
+              <span>Weekly off / holidays</span>
+              <span className="tabular-nums">
+                {summary.weeklyOff} / {summary.holidays}
+              </span>
+            </li>
           </ul>
         </div>
 
@@ -284,74 +417,9 @@ export default function MyDashboard({ data, fullName }: Props) {
             year={data.year}
             month={data.month}
             calendar={data.calendar}
-            selectedIso={toIsoDate(data.date)}
-            basePath="/dashboard"
+            selectedIso={selectedIso}
+            basePath={basePath}
           />
-        </div>
-      </section>
-
-      {/* My attendance records */}
-      <section className={`${card} overflow-hidden`}>
-        <div className="flex items-center justify-between gap-3 px-5 py-4">
-          <div>
-            <h2 className="font-semibold">My recent attendance</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Your latest attendance records
-            </p>
-          </div>
-
-          <Link
-            href="/attendance/my"
-            className="text-sm font-medium text-green-700 hover:underline"
-          >
-            View all
-          </Link>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-120 text-sm">
-            <thead className="bg-slate-50 text-left text-slate-500">
-              <tr>
-                <th className="px-5 py-3 font-medium">Date</th>
-                <th className="px-3 py-3 font-medium">Check in</th>
-                <th className="px-3 py-3 font-medium">Check out</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {data.attendance.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-5 py-8 text-center text-slate-500"
-                  >
-                    No attendance records found.
-                  </td>
-                </tr>
-              ) : (
-                data.attendance.map((record) => (
-                  <tr key={record.id} className="border-t border-slate-100">
-                    <td className="whitespace-nowrap px-5 py-3">
-                      {shortDate(record.date)}
-                    </td>
-
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {clockText(record.checkIn)}
-                    </td>
-
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {clockText(record.checkOut)}
-                    </td>
-
-                    <td className="px-5 py-3">
-                      <AttendanceStatusBadge status={record.status} />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
         </div>
       </section>
 
@@ -361,10 +429,9 @@ export default function MyDashboard({ data, fullName }: Props) {
           <div>
             <h2 className="font-semibold">My leave requests</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Check the status of your requests
+              Check the status of your latest requests
             </p>
           </div>
-
           <Link
             href="/leaves/my"
             className="text-sm font-medium text-green-700 hover:underline"
@@ -377,10 +444,10 @@ export default function MyDashboard({ data, fullName }: Props) {
           <div className="px-5 py-8 text-center">
             <ClipboardList className="mx-auto mb-2 text-slate-400" size={28} />
             <p className="text-sm text-slate-500">
-              You haven't submitted any leave requests yet.
+              You have not submitted any leave requests yet.
             </p>
             <Link
-              href="/leaves/my"
+              href="/leaves/request"
               className="mt-3 inline-block text-sm font-medium text-green-700 hover:underline"
             >
               Request leave
@@ -394,25 +461,33 @@ export default function MyDashboard({ data, fullName }: Props) {
                   <th className="px-5 py-3 font-medium">Leave type</th>
                   <th className="px-3 py-3 font-medium">From</th>
                   <th className="px-3 py-3 font-medium">To</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
+                  <th className="px-3 py-3 font-medium">Days</th>
+                  <th className="px-3 py-3 font-medium">Status</th>
+                  <th className="px-5 py-3 font-medium">Waiting for</th>
                 </tr>
               </thead>
-
               <tbody>
                 {data.leaveRequests.map((leave) => (
                   <tr key={leave.id} className="border-t border-slate-100">
                     <td className="px-5 py-3 font-medium">{leave.type}</td>
-
                     <td className="whitespace-nowrap px-3 py-3">
                       {shortDate(leave.from)}
                     </td>
-
                     <td className="whitespace-nowrap px-3 py-3">
                       {shortDate(leave.to)}
                     </td>
-
-                    <td className="px-5 py-3">
+                    <td className="px-3 py-3">{leave.days}</td>
+                    <td className="px-3 py-3">
                       <LeaveStatusBadge status={leave.status} />
+                    </td>
+                    <td className="px-5 py-3 text-slate-600">
+                      {leave.status === "PENDING" &&
+                      leave.approverLevel &&
+                      leave.approverLevel !== "STAFF"
+                        ? APPROVER_LABEL[
+                            leave.approverLevel as "DD" | "CEO" | "CHAIRMAN"
+                          ]
+                        : ""}
                     </td>
                   </tr>
                 ))}

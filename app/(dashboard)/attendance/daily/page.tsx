@@ -15,7 +15,7 @@ import { listDepartments } from "@/services/department.service";
 import AttendanceStatusBadge, {
   STATUS_ORDER,
 } from "@/components/AttendanceStatusBadge";
-import { hasPermission, requirePermission } from "@/lib/auth/authorization";
+import { hasPermission, requireScope } from "@/lib/auth/authorization";
 
 type SearchParams = Promise<{ date?: string; department?: string }>;
 
@@ -24,9 +24,9 @@ export default async function DailyAttendancePage({
 }: {
   searchParams: SearchParams;
 }) {
-  await requirePermission(PERMISSIONS.ATTENDANCE_VIEW);
+  // HR, IT Officer, Admin, CEO, Chairman: everyone. DD: own department only.
+  const { user, scope } = await requireScope();
   const sp = await searchParams;
-  const user = await requirePermission(PERMISSIONS.ATTENDANCE_VIEW);
   const canEdit = hasPermission(user, PERMISSIONS.ATTENDANCE_EDIT);
   const date = parseIsoDate(sp.date) ?? (await getLatestAttendanceDate());
   if (!date) {
@@ -34,20 +34,32 @@ export default async function DailyAttendancePage({
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Daily attendance</h1>
         <p className="text-zinc-600">
-          No attendance has been processed yet. Import a file first.{" "}
-          <Link href="/attendance/import" className="underline">
-            Go to Import
-          </Link>
+          No attendance has been processed yet.
+          {hasPermission(user, PERMISSIONS.ATTENDANCE_IMPORT) && (
+            <>
+              {" "}
+              Import a file first.{" "}
+              <Link href="/attendance/import" className="underline">
+                Go to Import
+              </Link>
+            </>
+          )}
         </p>
       </div>
     );
   }
 
-  const departmentId = sp.department || undefined;
+  // The department filter only applies to people who see everyone; a DD is fixed to their own.
+  const departmentId =
+    scope.kind === "ALL" ? sp.department || undefined : undefined;
   const [{ records, counts }, departments] = await Promise.all([
-    getDailyAttendance(date, departmentId),
+    getDailyAttendance(date, departmentId, scope),
     listDepartments(),
   ]);
+  const ownDepartment =
+    scope.kind === "DEPARTMENT"
+      ? departments.find((d) => d.id === scope.departmentId)?.name
+      : undefined;
 
   const iso = toIsoDate(date);
   const link = (d: Date) => {
@@ -93,18 +105,24 @@ export default async function DailyAttendancePage({
           defaultValue={iso}
           className="rounded border border-zinc-400 px-3 py-2 text-sm"
         />
-        <select
-          name="department"
-          defaultValue={departmentId ?? ""}
-          className="rounded border border-zinc-400 px-3 py-2 text-sm"
-        >
-          <option value="">All departments</option>
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
+        {scope.kind === "ALL" ? (
+          <select
+            name="department"
+            defaultValue={departmentId ?? ""}
+            className="rounded border border-zinc-400 px-3 py-2 text-sm"
+          >
+            <option value="">All departments</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="self-center text-sm text-zinc-600">
+            Department: {ownDepartment}
+          </span>
+        )}
         <button
           type="submit"
           className="rounded border px-4 py-2 text-sm bg-green-800 text-white hoverEffect hover:bg-white hover:text-green-800"

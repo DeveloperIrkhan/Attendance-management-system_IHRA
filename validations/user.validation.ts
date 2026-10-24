@@ -1,22 +1,12 @@
 import { z } from "zod";
-import { passwordRule } from "./auth.validation";
 
-const base = {
-  fullName: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
-  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
-  roleId: z.string().min(1, "Select a role"),
-  employeeId: z
-    .string()
-    .optional()
-    .transform((v) => (v ? v : null)),
-};
-
-export const userCreateSchema = z.object({ ...base, password: passwordRule });
-export const userUpdateSchema = z.object({ id: z.string().min(1), ...base });
-export const resetPasswordSchema = z.object({
+// Logins are created automatically 
+// The Users screen only changes the role 
+// (for example to HR or IT_OFFICER), 
+// resets the // password, and deactivates or reactivates a login.
+export const roleChangeSchema = z.object({
   id: z.string().min(1),
-  password: passwordRule,
+  roleId: z.string().min(1, "Select a role"),
 });
 
-export type UserCreateInput = z.infer<typeof userCreateSchema>;
-export type UserUpdateInput = z.infer<typeof userUpdateSchema>;
+export type RoleChangeInput = z.infer<typeof roleChangeSchema>;

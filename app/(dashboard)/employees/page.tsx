@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { hasPermission, requirePermission } from "@/lib/auth/authorization";
+import { redirect } from "next/navigation";
+import {
+  getDataScope,
+  hasPermission,
+  requireUser,
+} from "@/lib/auth/authorization";
+import type { DataScope } from "@/lib/auth/data-scope";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { listEmployees } from "@/services/employee.service";
 import { listDepartments } from "@/services/department.service";
@@ -18,7 +24,12 @@ export default async function EmployeesPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const user = await requirePermission(PERMISSIONS.EMPLOYEES_VIEW);
+  const user = await requireUser();
+  // employees:view lists everyone; otherwise a DD sees their own department (view only)
+  const scope: DataScope = hasPermission(user, PERMISSIONS.EMPLOYEES_VIEW)
+    ? { kind: "ALL" }
+    : getDataScope(user);
+  if (scope.kind === "SELF") redirect("/unauthorized");
   const canManage = hasPermission(user, PERMISSIONS.EMPLOYEES_MANAGE);
 
   const sp = await searchParams;
@@ -26,12 +37,15 @@ export default async function EmployeesPage({
     sp.status === "active" || sp.status === "inactive" ? sp.status : undefined;
 
   const [result, departments] = await Promise.all([
-    listEmployees({
-      textSearch: sp.q?.trim() || undefined,
-      departmentId: sp.department || undefined,
-      status,
-      page: Number(sp.page) || 1,
-    }),
+    listEmployees(
+      {
+        textSearch: sp.q?.trim() || undefined,
+        departmentId: sp.department || undefined,
+        status,
+        page: Number(sp.page) || 1,
+      },
+      scope,
+    ),
     listDepartments(),
   ]);
 
@@ -54,10 +68,7 @@ export default async function EmployeesPage({
           </span>
         </h1>
         {canManage && (
-          <Link
-            href="/employees/new"
-            className="green-button hoverEffect"
-          >
+          <Link href="/employees/new" className="green-button hoverEffect">
             Add employee
           </Link>
         )}
@@ -73,18 +84,20 @@ export default async function EmployeesPage({
           placeholder="Search name, code, email, biometric ID"
           className="min-w-64 flex-1 custom-input"
         />
-        <select
-          name="department"
-          defaultValue={sp.department ?? ""}
-          className="rounded bordering px-3 py-2 text-sm"
-        >
-          <option value="">All departments</option>
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
+        {scope.kind === "ALL" && (
+          <select
+            name="department"
+            defaultValue={sp.department ?? ""}
+            className="rounded bordering px-3 py-2 text-sm"
+          >
+            <option value="">All departments</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        )}
         <select
           name="status"
           defaultValue={status ?? ""}
@@ -94,16 +107,10 @@ export default async function EmployeesPage({
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
-        <button
-          type="submit"
-          className="green-button hoverEffect"
-        >
+        <button type="submit" className="green-button hoverEffect">
           Filter
         </button>
-        <Link
-          href="/employees"
-          className="green-button-inverse hoverEffect"
-        >
+        <Link href="/employees" className="green-button-inverse hoverEffect">
           Reset
         </Link>
       </form>

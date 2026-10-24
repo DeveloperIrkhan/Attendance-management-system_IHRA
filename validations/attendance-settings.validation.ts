@@ -75,6 +75,10 @@ export function settingsFromForm(fd: FormData) {
     overtimeMinMinutes: fd.get("overtimeMinMinutes"),
     offDayWorkIsOvertime: fd.get("offDayWorkIsOvertime") === "on",
     defaultWeeklyOffDays: fd.getAll("weeklyOffDays"),
+    shortLeaveMaxMinutes: fd.get("shortLeaveMaxMinutes"),
+    shortLeaveMonthlyLimit: fd.get("shortLeaveMonthlyLimit"),
+    shortLeaveExcusesLateArrival:
+      fd.get("shortLeaveExcusesLateArrival") === "on",
   };
 }
 

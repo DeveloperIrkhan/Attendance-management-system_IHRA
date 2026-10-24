@@ -21,29 +21,16 @@ export async function POST(request: Request) {
     );
   }
 
+  // Never log the email or the password.
   const { email, password } = parsedValues.data;
-  console.log(email, password);
   const user = await prisma.user.findUnique({
     where: { email },
     include: { role: { select: { permissions: true } } },
   });
 
   if (!user) {
+    // Same time and same answer as a wrong password, so emails cannot be guessed.
     await verifyPassword(password, DUMMY_HASH);
-    const updated = await prisma.user.update({
-      where: { id: user.id },
-      data: { failedLoginAttempts: { increment: 1 } },
-      select: { failedLoginAttempts: true },
-    });
-    if (updated.failedLoginAttempts >= MAX_ATTEMPTS) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          failedLoginAttempts: 0,
-          lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000),
-        },
-      });
-    }
     return NextResponse.json(INVALID, { status: 401 });
   }
 

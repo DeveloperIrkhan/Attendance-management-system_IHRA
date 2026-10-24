@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { hasPermission, requireScope } from "@/lib/auth/authorization";
 import { requirePermission } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { formatMinutes } from "@/lib/attendance/attendance-rules";
@@ -19,7 +20,9 @@ export default async function MonthlySummaryPage({
 }: {
   searchParams: SearchParams;
 }) {
-  await requirePermission(PERMISSIONS.ATTENDANCE_VIEW);
+  // HR, IT Officer, Admin, CEO, Chairman: everyone. DD: own department only.
+  const { user, scope } = await requireScope();
+  const canReview = hasPermission(user, PERMISSIONS.ATTENDANCE_EDIT);
   const sp = await searchParams;
 
   let period = parseMonthParam(sp.month);
@@ -30,12 +33,16 @@ export default async function MonthlySummaryPage({
       : { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
   }
   const { year, month } = period;
-
-  const departmentId = sp.department || undefined;
+  const departmentId =
+    scope.kind === "ALL" ? sp.department || undefined : undefined;
   const [{ rows, totals }, departments] = await Promise.all([
-    getMonthlySummary(year, month, departmentId),
+    getMonthlySummary(year, month, departmentId, scope),
     listDepartments(),
   ]);
+  const ownDepartment =
+    scope.kind === "DEPARTMENT"
+      ? departments.find((d) => d.id === scope.departmentId)?.name
+      : undefined;
 
   const prev = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };
   const next = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 };
@@ -79,18 +86,24 @@ export default async function MonthlySummaryPage({
           defaultValue={monthParam(year, month)}
           className="rounded border px-3 py-2 text-sm"
         />
-        <select
-          name="department"
-          defaultValue={departmentId ?? ""}
-          className="rounded border px-3 py-2 text-sm"
-        >
-          <option value="">All departments</option>
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
+        {scope.kind === "ALL" ? (
+          <select
+            name="department"
+            defaultValue={departmentId ?? ""}
+            className="rounded border px-3 py-2 text-sm"
+          >
+            <option value="">All departments</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="self-center text-sm text-zinc-600">
+            Department: {ownDepartment}
+          </span>
+        )}
         <button
           type="submit"
           className="rounded-md border px-3 py-1 bg-green-800 text-white hoverEffect hover:text-green-800 hover:bg-white"
@@ -103,12 +116,14 @@ export default async function MonthlySummaryPage({
         <div className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-900">
           {totals.missingPunch} day(s) still have a missing punch and count as
           absent until HR corrects them.{" "}
-          <Link
-            href={`/attendance/review?month=${monthParam(year, month)}`}
-            className="underline"
-          >
-            Review them
-          </Link>
+          {canReview && (
+            <Link
+              href={`/attendance/review?month=${monthParam(year, month)}`}
+              className="underline"
+            >
+              Review them
+            </Link>
+          )}
         </div>
       )}
 
@@ -194,7 +209,9 @@ export default async function MonthlySummaryPage({
                 <td className="p-3 text-right">{totals.absent}</td>
                 <td className="p-3 text-right">{totals.onLeave}</td>
                 <td className="p-3 text-right">{totals.lateMinutes}</td>
-                <td className="p-3 text-right">{totals.shortLeaveApprovedMinutes}</td>
+                <td className="p-3 text-right">
+                  {totals.shortLeaveApprovedMinutes}
+                </td>
                 <td className="p-3 text-right">
                   {hours(totals.overtimeMinutes)}
                 </td>

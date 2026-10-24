@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { monthRange } from "@/lib/attendance/dates";
+import { employeeWhereFor, type DataScope } from "@/lib/auth/data-scope";
 
 export type SummaryRow = {
   employeeId: string;
@@ -45,14 +46,15 @@ const emptyCounters = (): Counters => ({
 export async function getMonthlySummary(
   year: number,
   month: number,
-  departmentId?: string,
+  departmentId: string | undefined,
+  scope: DataScope,
 ) {
   const { start, end } = monthRange(year, month);
-
+  const employeeFilter = employeeWhereFor(scope, departmentId);
   const records = await prisma.attendance.findMany({
     where: {
       date: { gte: start, lt: end },
-      ...(departmentId ? { employee: { departmentId } } : {}),
+      ...(departmentId ? { employee: employeeFilter } : {}),
     },
     select: {
       employeeId: true,
@@ -98,7 +100,7 @@ export async function getMonthlySummary(
     where: {
       status: "APPROVED",
       date: { gte: start, lt: end },
-      ...(departmentId ? { employee: { departmentId } } : {}),
+      ...(departmentId ? { employee: employeeFilter } : {}),
     },
     select: { employeeId: true, durationMinutes: true },
   });
