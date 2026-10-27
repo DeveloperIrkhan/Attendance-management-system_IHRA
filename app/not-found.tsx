@@ -1,6 +1,3 @@
-import Image from "next/image";
-import React from "react";
-import { images } from "@/public/ImagesUrls";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 

@@ -1,4 +1,3 @@
-import { DataScope } from "./../lib/auth/data-scope";
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import {
@@ -590,5 +589,7 @@ export async function buildReport(
         ],
       };
     }
+    default:
+      throw new ServiceError("Unknown report type.");
   }
 }
