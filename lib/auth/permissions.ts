@@ -62,6 +62,7 @@ export const SYSTEM_ROLES: {
       P.ATTENDANCE_VIEW_OWN,
       P.REPORTS_VIEW,
       P.LEAVES_REQUEST,
+      P.REPORTS_EXPORT,
     ],
   },
   {

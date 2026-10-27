@@ -151,6 +151,12 @@ export function buildNav(
             icon: "history",
             show: can(P.ATTENDANCE_IMPORT, P.ATTENDANCE_VIEW),
           },
+          {
+            href: "/reports",
+            label: "Reports",
+            icon: "monthly",
+            show: sees,
+          },
         ],
       },
       {
