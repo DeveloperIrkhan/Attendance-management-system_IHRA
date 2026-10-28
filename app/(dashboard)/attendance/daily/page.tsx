@@ -71,6 +71,7 @@ export default async function DailyAttendancePage({
     weekday: "long",
     timeZone: "UTC",
   });
+  console.log("records", records.length);
 
   return (
     <div className="space-y-4">

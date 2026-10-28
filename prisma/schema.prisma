@@ -125,6 +125,21 @@ model Holiday {
   createdAt DateTime @default(now())
 }
 
+model DevicePunch {
+  id           String   @id @default(cuid())
+  deviceId     String
+  deviceUserId String
+  punchedAt    DateTime
+  punchState   Int?
+  verifyMode   Int?
+  sourceKey    String   @unique
+  rawData      Json
+  importedAt   DateTime @default(now())
+
+  @@index([deviceId, punchedAt])
+  @@index([deviceUserId, punchedAt])
+}
+
 model ImportBatch {
   id       String       @id @default(cuid())
   fileName String

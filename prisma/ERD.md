@@ -88,6 +88,17 @@ erDiagram
   String title
   DateTime createdAt
 }
+"DevicePunch" {
+  String id PK
+  String deviceId
+  String deviceUserId
+  DateTime punchedAt
+  Int punchState "nullable"
+  Int verifyMode "nullable"
+  String sourceKey UK
+  Json rawData
+  DateTime importedAt
+}
 "ImportBatch" {
   String id PK
   String fileName
@@ -305,6 +316,20 @@ Properties as follows:
 - `date`:
 - `title`:
 - `createdAt`:
+
+### `DevicePunch`
+
+Properties as follows:
+
+- `id`:
+- `deviceId`:
+- `deviceUserId`:
+- `punchedAt`:
+- `punchState`:
+- `verifyMode`:
+- `sourceKey`:
+- `rawData`:
+- `importedAt`:
 
 ### `ImportBatch`
 
