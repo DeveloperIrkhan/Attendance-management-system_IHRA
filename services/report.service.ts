@@ -41,7 +41,7 @@ const MAX_RANGE_DAYS = 366;
 export function listReportEmployees(scope: DataScope) {
   return prisma.employee.findMany({
     where: employeeWhereFor(scope),
-    orderBy: { biometricId: "asc" },
+    orderBy: { name: "asc" },
     select: { id: true, name: true, employeeCode: true },
   });
 }

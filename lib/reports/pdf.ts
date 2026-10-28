@@ -1,6 +1,8 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
-import { ReportTable } from "./type";
+import { ORG_NAME, ORG_SHORT, SYSTEM_NAME } from "./branding";
+import type { ReportTable } from "./type";
 
+// A4 landscape, in points
 const PAGE_W = 842;
 const PAGE_H = 595;
 const MARGIN = 36;
@@ -8,6 +10,8 @@ const ROW_H = 18;
 const HEAD_H = 28;
 const FONT_SIZE = 8.5;
 const GREEN = rgb(0.086, 0.396, 0.204);
+
+/** Standard PDF fonts only cover Western characters: anything else is shown as "?". */
 function safe(font: PDFFont, text: string): string {
   let out = "";
   for (const ch of text.replace(/\s+/g, " ")) {
@@ -31,13 +35,24 @@ function fit(font: PDFFont, text: string, width: number, size: number): string {
   return `${cut}...`;
 }
 
+/** Draws a ReportTable as a landscape A4 PDF with a repeating header row and page numbers. */
 export async function renderReportPdf(
   table: ReportTable,
   generatedBy: string,
+  /** PNG bytes of the logo; the header is drawn without it if this is missing or unreadable */
+  logoPng?: Uint8Array | null,
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  let logo: Awaited<ReturnType<typeof pdf.embedPng>> | null = null;
+  if (logoPng) {
+    try {
+      logo = await pdf.embedPng(logoPng);
+    } catch {
+      logo = null;
+    }
+  }
 
   const usable = PAGE_W - MARGIN * 2;
   const totalWeight = table.column.reduce((s, c) => s + (c.weight ?? 1), 0);
@@ -51,15 +66,44 @@ export async function renderReportPdf(
   pages.push(page);
   let y = PAGE_H - MARGIN;
 
-  // title block (first page only)
-  page.drawText(safe(bold, table.title), {
-    x: MARGIN,
-    y: y - 14,
+  // Letterhead (first page): logo, full name of the authority, system name, green rule
+  const LOGO = 56;
+  const textX = logo ? MARGIN + LOGO + 12 : MARGIN;
+  if (logo) {
+    page.drawImage(logo, { x: MARGIN, y: y - LOGO, width: LOGO, height: LOGO });
+  }
+  page.drawText(safe(bold, ORG_NAME), {
+    x: textX,
+    y: y - 24,
     size: 16,
     font: bold,
     color: GREEN,
   });
-  y -= 32;
+  page.drawText(safe(font, SYSTEM_NAME), {
+    x: textX,
+    y: y - 42,
+    size: 10,
+    font,
+    color: rgb(0.3, 0.3, 0.3),
+  });
+  y -= LOGO + 8;
+  page.drawLine({
+    start: { x: MARGIN, y },
+    end: { x: PAGE_W - MARGIN, y },
+    thickness: 1.5,
+    color: GREEN,
+  });
+  y -= 24;
+
+  // report title block
+  page.drawText(safe(bold, table.title), {
+    x: MARGIN,
+    y,
+    size: 15,
+    font: bold,
+    color: rgb(0.1, 0.1, 0.1),
+  });
+  y -= 16;
   page.drawText(fit(font, table.subtitle, usable, 10), {
     x: MARGIN,
     y,
@@ -68,6 +112,32 @@ export async function renderReportPdf(
     color: rgb(0.25, 0.25, 0.25),
   });
   y -= 18;
+
+  // Later pages get a slim running header so a loose page can still be identified.
+  const addContinuationPage = () => {
+    page = pdf.addPage([PAGE_W, PAGE_H]);
+    pages.push(page);
+    y = PAGE_H - MARGIN;
+    if (logo)
+      page.drawImage(logo, { x: MARGIN, y: y - 18, width: 18, height: 18 });
+    const hx = logo ? MARGIN + 24 : MARGIN;
+    page.drawText(
+      fit(
+        font,
+        `${ORG_NAME} (${ORG_SHORT})  ·  ${table.title}`,
+        usable - 30,
+        8.5,
+      ),
+      {
+        x: hx,
+        y: y - 12,
+        size: 8.5,
+        font,
+        color: rgb(0.35, 0.35, 0.35),
+      },
+    );
+    y -= 26;
+  };
 
   // Headings wrap onto two lines so "Working days" or "Missing punch" are never cut off.
   const wrapHeading = (text: string, width: number): string[] => {
@@ -123,9 +193,7 @@ export async function renderReportPdf(
 
   lines.forEach((row, index) => {
     if (y - ROW_H < MARGIN + 18) {
-      page = pdf.addPage([PAGE_W, PAGE_H]);
-      pages.push(page);
-      y = PAGE_H - MARGIN;
+      addContinuationPage();
       drawHeader();
     }
     const isTotals = Boolean(table.totals) && index === lines.length - 1;
@@ -184,9 +252,7 @@ export async function renderReportPdf(
   // notes after the table
   for (const note of table.notes ?? []) {
     if (y - 16 < MARGIN + 18) {
-      page = pdf.addPage([PAGE_W, PAGE_H]);
-      pages.push(page);
-      y = PAGE_H - MARGIN;
+      addContinuationPage();
     }
     y -= 6;
     page.drawText(fit(font, note, usable, 9), {
