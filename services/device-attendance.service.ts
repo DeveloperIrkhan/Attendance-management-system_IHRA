@@ -14,20 +14,6 @@ const DAY_MS = 86_400_000;
 const SOURCE = "Source: uFace800";
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-/**
- * Turns the raw DevicePunch log into daily Attendance rows.
- *
- *  1. Every employee-day that has punches is evaluated with the same rules as the Excel import.
- *     A lone check-in made today, before the shift ends, counts as present (not "Missing punch").
- *  2. Every other day that is already over gets a row too: Absent (or On leave when a leave is
- *     approved) for working days, Weekly off / Holiday otherwise. Without these rows an employee
- *     who never punched would simply not appear, so they would not be counted as absent.
- *
- * Manual corrections are never overwritten, and existing rows are never replaced by step 2.
- * DevicePunch.punchedAt must be an office-clock time (see lib/attendance/office-clock.ts).
- *
- * `sinceDays` limits the work to the last N days (used on every poll); leave it out to rebuild everything.
- */
 export async function processDevicePunches(
   options: { sinceDays?: number } = {},
 ) {

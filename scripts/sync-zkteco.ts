@@ -35,32 +35,26 @@ type DeviceRecord = {
 
 function normalizeRecord(record: DeviceRecord) {
   const deviceUserId = String(record.deviceUserId ?? "").trim();
-  // Saved as office clock time (08:15 on the device screen = 08:15 UTC in the database),
-  // the way the rest of the app stores attendance times. See lib/attendance/office-clock.ts.
-  const punchedAt = toOfficeClock(new Date(record.recordTime), TIME_MODE);
-  // console.log("Punch time diagnostic:", {
-  //   serverTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  //   serverLocal: record.recordTime.toString(),
-  //   sdkISOString: record.recordTime.toISOString(),
-  //   mode: TIME_MODE,
-  //   savedOfficeClock: toOfficeClock(
-  //     new Date(record.recordTime),
-  //     TIME_MODE,
-  //   ).toISOString(),
-  // });
-  if (!deviceUserId || Number.isNaN(punchedAt.getTime())) {
+  const rawRecordTime = new Date(record.recordTime);
+
+  if (!deviceUserId || Number.isNaN(rawRecordTime.getTime())) {
     console.warn("Skipping invalid device record:", record);
     return null;
   }
 
-  // Include the available event fields in the deduplication key.
+  // Preserve the original SDK timestamp for stable deduplication.
+  const originalRecordTime = rawRecordTime.toISOString();
+
+  // Convert the timestamp to the application's office-clock convention.
+  const punchedAt = toOfficeClock(rawRecordTime, TIME_MODE);
+
   const sourceKey = createHash("sha256")
     .update(
       JSON.stringify([
         DEVICE_ID,
         record.userSn ?? null,
         deviceUserId,
-        punchedAt.toISOString(),
+        originalRecordTime,
         record.punch ?? null,
         record.status ?? null,
       ]),
