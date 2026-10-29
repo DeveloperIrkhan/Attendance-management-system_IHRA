@@ -92,7 +92,7 @@ export default function AppShell({
   }, []);
   return (
     <div className="flex min-h-screen h-full bg-green-50 text-green-900">
-      <aside className="hidden w-64 shrink-0 flex-col bg-green-900 lg:sticky lg:top-0 lg:flex lg:h-screen">
+      <aside className="hidden w-64 shrink-0 flex-col bg-black lg:sticky lg:top-0 lg:flex lg:h-screen">
         <div className="flex items-center gap-3 border-b border-green-800 px-5 py-5">
           <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-white">
             <Image

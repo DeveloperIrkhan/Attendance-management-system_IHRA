@@ -2,12 +2,26 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import {
+  addDays,
   monthRange,
   parseIsoDate,
   parseMonthParam,
   toIsoDate,
 } from "@/lib/attendance/dates";
-import { getMonthCalendar, makeDayTypeResolver } from "./settings.service";
+import { MONTHS } from "@/lib/attendance/months";
+import {
+  monthPeriod,
+  parseCustomPeriod,
+  parseStatusFilter,
+  type Period,
+  type PeriodParams,
+  type StatusFilter,
+} from "@/lib/attendance/period";
+import {
+  getMonthCalendar,
+  makeDayTypeResolver,
+  type MonthCalendar,
+} from "./settings.service";
 import type { DayTone } from "./dashboard.service";
 
 export type MyDay = {
@@ -28,6 +42,33 @@ export type MyDay = {
   isManual: boolean;
 };
 
+export type MySummary = {
+  /** days with a valid arrival: on time + short leave + half day */
+  attended: number;
+  present: number;
+  shortLeave: number;
+  halfDay: number;
+  absent: number;
+  onLeave: number;
+  missingPunch: number;
+  weeklyOff: number;
+  holidays: number;
+  /** late arrivals (short leave + half day) */
+  lateDays: number;
+  lateMinutes: number;
+  overtimeMinutes: number;
+  workingMinutes: number;
+};
+
+export type MySeriesPoint = {
+  label: string;
+  present: number;
+  late: number;
+  absent: number;
+  leave: number;
+  missing: number;
+};
+
 export type MyDashboardData = {
   employee: {
     name: string;
@@ -35,26 +76,12 @@ export type MyDashboardData = {
     department: string;
     designation: string;
   };
+  /** the month of the selected day: drives the calendar and the "selected day" card */
   year: number;
   month: number;
   date: Date;
-  summary: {
-    /** days with a valid arrival: on time + short leave + half day */
-    attended: number;
-    present: number;
-    shortLeave: number;
-    halfDay: number;
-    absent: number;
-    onLeave: number;
-    missingPunch: number;
-    weeklyOff: number;
-    holidays: number;
-    /** late arrivals (short leave + half day) */
-    lateDays: number;
-    lateMinutes: number;
-    overtimeMinutes: number;
-    workingMinutes: number;
-  };
+  /** the month's own numbers (kept for the calendar and older callers) */
+  summary: MySummary;
   /** the day picked with ?date= */
   selected: MyDay;
   /** every day of the month, in order */
@@ -68,6 +95,17 @@ export type MyDashboardData = {
     leave: number;
     missing: number;
   }[];
+  /**
+   * What the page is filtered to: a month (default), a custom date range or a whole year.
+   * The summary cards, charts and day table all use these period* fields.
+   */
+  period: Period;
+  periodSummary: MySummary;
+  /** every day of the period, in order, before the status filter */
+  periodDays: MyDay[];
+  /** one point per day, or per month when the period is longer than ~2 months */
+  periodSeries: MySeriesPoint[];
+  status: StatusFilter;
   leaveRequests: {
     id: string;
     type: string;
@@ -105,6 +143,9 @@ const TONE: Record<string, DayTone> = {
   NO_RECORD: "none",
 };
 
+/** Beyond this many days the chart shows one bar per month instead of one per day. */
+const DAILY_CHART_MAX_DAYS = 62;
+
 /**
  * Which day the employee dashboard shows:
  * ?date=YYYY-MM-DD, else the last record in ?month=YYYY-MM, else the employee's own
@@ -137,45 +178,113 @@ export async function resolveMyDate(
   return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 }
 
-export async function getMyDashboardData(
+/**
+ * Reads ?from= &to= &month= &year= &date= &status= and works out
+ *  - `date`:   the selected day (calendar + "selected day" card)
+ *  - `period`: a custom range or year, or null for the normal month view
+ *  - `status`: the status filter ("ALL" when none)
+ * Every page that shows the employee's own attendance calls this.
+ */
+export async function resolveMyView(
   employeeId: string,
-  date: Date,
-): Promise<MyDashboardData | null> {
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth() + 1;
-  const { start, end } = monthRange(year, month);
+  sp: PeriodParams & { status?: string },
+): Promise<{ date: Date; period: Period | null; status: StatusFilter }> {
+  const status = parseStatusFilter(sp.status);
+  const custom = parseCustomPeriod(sp);
 
-  const [employee, monthRows, leaveRows, monthCalendar] = await Promise.all([
-    prisma.employee.findUnique({
-      where: { id: employeeId },
-      select: {
-        name: true,
-        employeeCode: true,
-        department: { select: { name: true } },
-        designation: { select: { title: true } },
-      },
+  if (custom) {
+    // Select the last day that has a record inside the period, else its first day.
+    const latest = await prisma.attendance.aggregate({
+      _max: { date: true },
+      where: { employeeId, date: { gte: custom.start, lte: custom.end } },
+    });
+    return { date: latest._max.date ?? custom.start, period: custom, status };
+  }
+
+  const date = await resolveMyDate(employeeId, sp.date, sp.month);
+  return { date, period: null, status };
+}
+
+/** One entry per calendar day from `start` to `end` (both inclusive). */
+async function buildDays(
+  employeeId: string,
+  start: Date,
+  end: Date,
+): Promise<MyDay[]> {
+  const rows = await prisma.attendance.findMany({
+    where: { employeeId, date: { gte: start, lt: addDays(end, 1) } },
+    orderBy: { date: "asc" },
+  });
+  const rowByDate = new Map(rows.map((r) => [toIsoDate(r.date), r]));
+
+  // The weekly-off days and holidays can differ per month: load each month once.
+  const monthKeys: { year: number; month: number }[] = [];
+  const seen = new Set<string>();
+  for (let d = start; d <= end; d = addDays(d, 1)) {
+    const key = `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      monthKeys.push({ year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 });
+    }
+  }
+  const loaded = await Promise.all(
+    monthKeys.map((m) => getMonthCalendar(m.year, m.month)),
+  );
+  const calendars = new Map<
+    string,
+    { cal: MonthCalendar; dayTypeOf: ReturnType<typeof makeDayTypeResolver> }
+  >();
+  monthKeys.forEach((m, i) =>
+    calendars.set(`${m.year}-${m.month}`, {
+      cal: loaded[i],
+      dayTypeOf: makeDayTypeResolver(loaded[i]),
     }),
-    prisma.attendance.findMany({
-      where: { employeeId, date: { gte: start, lt: end } },
-      orderBy: { date: "asc" },
-    }),
-    prisma.leaveRequest.findMany({
-      where: { employeeId },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      include: { leaveType: { select: { name: true } } },
-    }),
-    getMonthCalendar(year, month),
-  ]);
+  );
 
-  // The user account must be linked to an existing employee.
-  if (!employee) return null;
+  const days: MyDay[] = [];
+  for (let current = start; current <= end; current = addDays(current, 1)) {
+    const iso = toIsoDate(current);
+    const { cal, dayTypeOf } = calendars.get(
+      `${current.getUTCFullYear()}-${current.getUTCMonth() + 1}`,
+    )!;
+    const row = rowByDate.get(iso);
+    const dayType = dayTypeOf(current);
+    const holiday =
+      dayType === "HOLIDAY"
+        ? cal.holidays.find((h) => toIsoDate(h.date) === iso)
+        : undefined;
 
-  const dayTypeOf = makeDayTypeResolver(monthCalendar);
-  const rowByDate = new Map(monthRows.map((r) => [toIsoDate(r.date), r]));
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    // A saved record wins (someone who worked on a holiday still shows as present);
+    // without one, the calendar says whether it was a weekly off day or a holiday.
+    const status = row
+      ? row.status
+      : dayType === "HOLIDAY"
+        ? "HOLIDAY"
+        : dayType === "WEEKEND"
+          ? "WEEKEND"
+          : "NO_RECORD";
 
-  const summary: MyDashboardData["summary"] = {
+    days.push({
+      iso,
+      day: current.getUTCDate(),
+      status,
+      tone: TONE[status] ?? "none",
+      label: LABEL[status] ?? status,
+      note: row?.remarks ?? holiday?.title ?? null,
+      checkIn: row?.checkIn ?? null,
+      checkOut: row?.checkOut ?? null,
+      workingMinutes: row?.workingMinutes ?? 0,
+      lateMinutes: row?.lateMinutes ?? 0,
+      earlyLeaveMinutes: row?.earlyLeaveMinutes ?? 0,
+      overtimeMinutes: row?.overtimeMinutes ?? 0,
+      isManual: row?.isManual ?? false,
+    });
+  }
+  return days;
+}
+
+function summarize(days: MyDay[]): MySummary {
+  const s: MySummary = {
     attended: 0,
     present: 0,
     shortLeave: 0,
@@ -190,93 +299,138 @@ export async function getMyDashboardData(
     overtimeMinutes: 0,
     workingMinutes: 0,
   };
-
-  const days: MyDay[] = [];
-  const calendar: MyDashboardData["calendar"] = {};
-  const series: MyDashboardData["series"] = [];
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const current = new Date(Date.UTC(year, month - 1, day));
-    const iso = toIsoDate(current);
-    const row = rowByDate.get(iso);
-    const dayType = dayTypeOf(current);
-    const holiday =
-      dayType === "HOLIDAY"
-        ? monthCalendar.holidays.find((h) => toIsoDate(h.date) === iso)
-        : undefined;
-
-    // A saved record wins (someone who worked on a holiday still shows as present);
-    // without one, the calendar says whether it was a weekly off day or a holiday.
-    const status = row
-      ? row.status
-      : dayType === "HOLIDAY"
-        ? "HOLIDAY"
-        : dayType === "WEEKEND"
-          ? "WEEKEND"
-          : "NO_RECORD";
-
-    const entry: MyDay = {
-      iso,
-      day,
-      status,
-      tone: TONE[status] ?? "none",
-      label: LABEL[status] ?? status,
-      note: row?.remarks ?? holiday?.title ?? null,
-      checkIn: row?.checkIn ?? null,
-      checkOut: row?.checkOut ?? null,
-      workingMinutes: row?.workingMinutes ?? 0,
-      lateMinutes: row?.lateMinutes ?? 0,
-      earlyLeaveMinutes: row?.earlyLeaveMinutes ?? 0,
-      overtimeMinutes: row?.overtimeMinutes ?? 0,
-      isManual: row?.isManual ?? false,
-    };
-    days.push(entry);
-    calendar[iso] = { tone: entry.tone, title: entry.label };
-
-    switch (status) {
+  for (const d of days) {
+    switch (d.status) {
       case "PRESENT":
-        summary.present++;
+        s.present++;
         break;
       case "SHORT_LEAVE":
-        summary.shortLeave++;
+        s.shortLeave++;
         break;
       case "HALF_DAY":
-        summary.halfDay++;
+        s.halfDay++;
         break;
       case "ABSENT":
-        summary.absent++;
+        s.absent++;
         break;
       case "ON_LEAVE":
-        summary.onLeave++;
+        s.onLeave++;
         break;
       case "INCOMPLETE":
-        summary.missingPunch++;
+        s.missingPunch++;
         break;
       case "WEEKEND":
-        summary.weeklyOff++;
+        s.weeklyOff++;
         break;
       case "HOLIDAY":
-        summary.holidays++;
+        s.holidays++;
         break;
     }
-    summary.lateMinutes += entry.lateMinutes;
-    summary.overtimeMinutes += entry.overtimeMinutes;
-    summary.workingMinutes += entry.workingMinutes;
+    s.lateMinutes += d.lateMinutes;
+    s.overtimeMinutes += d.overtimeMinutes;
+    s.workingMinutes += d.workingMinutes;
+  }
+  s.lateDays = s.shortLeave + s.halfDay;
+  s.attended = s.present + s.shortLeave + s.halfDay;
+  return s;
+}
 
-    series.push({
-      day,
-      present: status === "PRESENT" ? 1 : 0,
-      late: status === "SHORT_LEAVE" || status === "HALF_DAY" ? 1 : 0,
-      absent: status === "ABSENT" ? 1 : 0,
-      leave: status === "ON_LEAVE" ? 1 : 0,
-      missing: status === "INCOMPLETE" ? 1 : 0,
+function counts(status: string) {
+  return {
+    present: status === "PRESENT" ? 1 : 0,
+    late: status === "SHORT_LEAVE" || status === "HALF_DAY" ? 1 : 0,
+    absent: status === "ABSENT" ? 1 : 0,
+    leave: status === "ON_LEAVE" ? 1 : 0,
+    missing: status === "INCOMPLETE" ? 1 : 0,
+  };
+}
+
+function seriesFor(days: MyDay[]): MySeriesPoint[] {
+  if (days.length === 0) return [];
+  const first = days[0].iso;
+  const last = days[days.length - 1].iso;
+  const sameMonth = first.slice(0, 7) === last.slice(0, 7);
+  const sameYear = first.slice(0, 4) === last.slice(0, 4);
+
+  if (days.length <= DAILY_CHART_MAX_DAYS) {
+    return days.map((d) => {
+      const monthName = MONTHS[Number(d.iso.slice(5, 7)) - 1].slice(0, 3);
+      return {
+        label: sameMonth ? String(d.day) : `${d.day} ${monthName}`,
+        ...counts(d.status),
+      };
     });
   }
 
-  summary.lateDays = summary.shortLeave + summary.halfDay;
-  summary.attended = summary.present + summary.shortLeave + summary.halfDay;
+  // Long period: one bar per month.
+  const byMonth = new Map<string, MySeriesPoint>();
+  for (const d of days) {
+    const key = d.iso.slice(0, 7);
+    let point = byMonth.get(key);
+    if (!point) {
+      const name = MONTHS[Number(key.slice(5, 7)) - 1].slice(0, 3);
+      point = {
+        label: sameYear ? name : `${name} ${key.slice(2, 4)}`,
+        present: 0,
+        late: 0,
+        absent: 0,
+        leave: 0,
+        missing: 0,
+      };
+      byMonth.set(key, point);
+    }
+    const c = counts(d.status);
+    point.present += c.present;
+    point.late += c.late;
+    point.absent += c.absent;
+    point.leave += c.leave;
+    point.missing += c.missing;
+  }
+  return [...byMonth.values()];
+}
 
-  const selected = days[date.getUTCDate() - 1];
+export async function getMyDashboardData(
+  employeeId: string,
+  date: Date,
+  options: { period?: Period | null; status?: StatusFilter } = {},
+): Promise<MyDashboardData | null> {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + 1;
+  const monthOf = monthPeriod(year, month);
+  const customPeriod = options.period ?? null;
+
+  const [employee, monthDays, customDays, leaveRows] = await Promise.all([
+    prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: {
+        name: true,
+        employeeCode: true,
+        department: { select: { name: true } },
+        designation: { select: { title: true } },
+      },
+    }),
+    buildDays(employeeId, monthOf.start, monthOf.end),
+    customPeriod
+      ? buildDays(employeeId, customPeriod.start, customPeriod.end)
+      : Promise.resolve(null),
+    prisma.leaveRequest.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: { leaveType: { select: { name: true } } },
+    }),
+  ]);
+
+  // The user account must be linked to an existing employee.
+  if (!employee) return null;
+
+  const period = customPeriod ?? monthOf;
+  const periodDays = customDays ?? monthDays;
+
+  const calendar: MyDashboardData["calendar"] = {};
+  for (const d of monthDays) calendar[d.iso] = { tone: d.tone, title: d.label };
+
+  const summary = summarize(monthDays);
 
   return {
     employee: {
@@ -289,10 +443,15 @@ export async function getMyDashboardData(
     month,
     date,
     summary,
-    selected,
-    days,
+    selected: monthDays[date.getUTCDate() - 1],
+    days: monthDays,
     calendar,
-    series,
+    series: monthDays.map((d) => ({ day: d.day, ...counts(d.status) })),
+    period,
+    periodSummary: customDays ? summarize(customDays) : summary,
+    periodDays,
+    periodSeries: seriesFor(periodDays),
+    status: options.status ?? "ALL",
     leaveRequests: leaveRows.map((leave) => ({
       id: leave.id,
       type: leave.leaveType.name,

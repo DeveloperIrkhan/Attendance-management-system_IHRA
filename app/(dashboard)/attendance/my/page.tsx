@@ -1,22 +1,36 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import AttendanceStatusBadge from "@/components/AttendanceStatusBadge";
-import { clockText, monthParam } from "@/lib/attendance/dates";
+import { clockText, monthParam, toIsoDate } from "@/lib/attendance/dates";
 import { formatMinutes } from "@/lib/attendance/duration";
-import { MONTHS } from "@/lib/attendance/months";
 import { requirePermission } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import {
   getMyDashboardData,
-  resolveMyDate,
+  resolveMyView,
 } from "@/services/my-dashboard.service";
+import { matchesStatus, periodQuery, STATUS_FILTERS, statusFilterLabel, withStatus } from "@/lib/attendance/period";
+import MyAttendanceFilters from "@/components/MyAttendanceFilters";
 
 type SearchParams = Promise<{
   date?: string;
   month?: string;
+  from?: string;
+  to?: string;
+  year?: string;
+  status?: string;
 }>;
 
 const card = "rounded-xl border border-slate-200 bg-white shadow-md";
+const BASE = "/attendance/my";
+
+const dayText = (iso: string, withYear: boolean) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    ...(withYear ? { year: "numeric" } : {}),
+    timeZone: "UTC",
+  });
 
 export default async function MyAttendancePage({
   searchParams,
@@ -35,8 +49,11 @@ export default async function MyAttendancePage({
   }
 
   // Only this employee's own records are read (the id comes from the session).
-  const date = await resolveMyDate(user.employeeId, sp.date, sp.month);
-  const data = await getMyDashboardData(user.employeeId, date);
+  const view = await resolveMyView(user.employeeId, sp);
+  const data = await getMyDashboardData(user.employeeId, view.date, {
+    period: view.period,
+    status: view.status,
+  });
   if (!data) {
     return (
       <p className="rounded bg-amber-50 p-3 text-sm text-amber-800">
@@ -45,10 +62,23 @@ export default async function MyAttendancePage({
     );
   }
 
-  const { year, month, summary } = data;
+  const { year, month, period, status } = data;
+  const summary = data.periodSummary;
+  const isMonth = period.kind === "month";
   const prev = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };
   const next = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 };
   const selectedIso = data.selected.iso;
+
+  const rows = data.periodDays.filter((d) => matchesStatus(d.status, status));
+  const showYear = !isMonth || period.start.getUTCFullYear() !== year;
+
+  // One pill per status, with how many days of the period match it.
+  const pillQuery = periodQuery(period);
+  const pills = STATUS_FILTERS.map((s) => ({
+    ...s,
+    count: data.periodDays.filter((d) => matchesStatus(d.status, s.value))
+      .length,
+  }));
 
   return (
     <div className="space-y-4">
@@ -58,69 +88,75 @@ export default async function MyAttendancePage({
             My attendance
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Every day of {MONTHS[month - 1]} {year}. Attended {summary.attended}
-            , absent {summary.absent}, late {summary.lateDays}, missing punch{" "}
-            {summary.missingPunch}, on leave {summary.onLeave}.
+            {period.label}
+            {status !== "ALL" && <> · {statusFilterLabel(status)}</>}. Attended{" "}
+            {summary.attended}, absent {summary.absent}, late{" "}
+            {summary.lateDays}, missing punch {summary.missingPunch}, on leave{" "}
+            {summary.onLeave}.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-end gap-4">
+        {isMonth && (
           <div className="flex items-center gap-1">
             <Link
-              href={`/attendance/my?month=${monthParam(prev.y, prev.m)}`}
+              href={`${BASE}${withStatus({ month: monthParam(prev.y, prev.m) }, status)}`}
               aria-label="Previous month"
               className="rounded-md border p-2 text-slate-600 hover:bg-slate-100"
             >
               <ChevronLeft size={16} aria-hidden />
             </Link>
             <Link
-              href={`/attendance/my?month=${monthParam(next.y, next.m)}`}
+              href={`${BASE}${withStatus({ month: monthParam(next.y, next.m) }, status)}`}
               aria-label="Next month"
               className="rounded-md border p-2 text-slate-600 hover:bg-slate-100"
             >
               <ChevronRight size={16} aria-hidden />
             </Link>
           </div>
-
-          <form method="get" className="flex items-end gap-2">
-            <div className="space-y-1">
-              <label htmlFor="att-month" className="text-sm font-medium">
-                Month
-              </label>
-              <input
-                id="att-month"
-                type="month"
-                name="month"
-                required
-                defaultValue={monthParam(year, month)}
-                className="block rounded border px-3 py-2 custom-input"
-              />
-            </div>
-            <button type="submit" className="green-button hoverEffect">
-              Show
-            </button>
-          </form>
-
-          <form method="get" className="flex items-end gap-2">
-            <div className="space-y-1">
-              <label htmlFor="att-date" className="text-sm font-medium">
-                Go to a day
-              </label>
-              <input
-                id="att-date"
-                type="date"
-                name="date"
-                required
-                defaultValue={selectedIso}
-                className="block rounded border px-3 py-2 custom-input"
-              />
-            </div>
-            <button type="submit" className="green-button hoverEffect">
-              Go
-            </button>
-          </form>
-        </div>
+        )}
       </div>
+
+      <section className={`${card} space-y-4 p-4`}>
+        <MyAttendanceFilters
+          // remount when the URL changes so the form always shows what is applied
+          key={`${period.kind}-${toIsoDate(period.start)}-${toIsoDate(period.end)}-${status}`}
+          basePath={BASE}
+          kind={period.kind}
+          month={monthParam(year, month)}
+          year={period.start.getUTCFullYear()}
+          from={toIsoDate(period.start)}
+          to={toIsoDate(period.end)}
+          status={status}
+        />
+
+        <div className="flex flex-wrap gap-2" aria-label="Filter by status">
+          {pills.map((p) => {
+            const active = p.value === status;
+            return (
+              <Link
+                key={p.value}
+                href={`${BASE}${withStatus(pillQuery, p.value)}`}
+                aria-current={active ? "true" : undefined}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  active
+                    ? "border-green-800 bg-green-800 text-white"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {p.label}{" "}
+                <span className="tabular-nums opacity-80">({p.count})</span>
+              </Link>
+            );
+          })}
+        </div>
+
+        {period.clamped && (
+          <p className="rounded bg-amber-50 p-2 text-xs text-amber-800">
+            The range was longer than a year, so only the last 366 days up to
+            your end date are shown.
+          </p>
+        )}
+      </section>
 
       <section className={`${card} overflow-hidden`}>
         <div className="overflow-x-auto">
@@ -137,7 +173,17 @@ export default async function MyAttendancePage({
               </tr>
             </thead>
             <tbody>
-              {data.days.map((d) => {
+              {rows.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-5 py-8 text-center text-slate-500"
+                  >
+                    No days match this filter.
+                  </td>
+                </tr>
+              )}
+              {rows.map((d) => {
                 const weekday = new Date(
                   `${d.iso}T00:00:00Z`,
                 ).toLocaleDateString("en-GB", {
@@ -149,11 +195,11 @@ export default async function MyAttendancePage({
                   <tr
                     key={d.iso}
                     className={`border-t border-slate-100 ${
-                      d.iso === selectedIso ? "bg-green-50" : ""
+                      d.iso === selectedIso && isMonth ? "bg-green-50" : ""
                     } ${quiet ? "text-slate-500" : ""}`}
                   >
                     <td className="whitespace-nowrap px-5 py-3">
-                      {d.day} {MONTHS[month - 1].slice(0, 3)}{" "}
+                      {dayText(d.iso, showYear)}{" "}
                       <span className="text-xs text-slate-400">{weekday}</span>
                     </td>
                     <td className="whitespace-nowrap px-3 py-3">
@@ -196,7 +242,7 @@ export default async function MyAttendancePage({
 
       <p className="text-sm text-slate-500">
         <Link
-          href={`/dashboard?month=${monthParam(year, month)}`}
+          href={`/dashboard${withStatus(pillQuery, "ALL")}`}
           className="font-medium text-green-700 hover:underline"
         >
           Back to my dashboard

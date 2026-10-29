@@ -59,7 +59,7 @@ export default function SidebarNav({
                 aria-current={isActive(item.href) ? "page" : undefined}
                 className={`flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm ${
                   isActive(item.href)
-                    ? "bg-green-800 text-white"
+                    ? "bg-black-800 text-white"
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >

@@ -179,6 +179,82 @@ async function hasActiveApprover(
   return Boolean(found);
 }
 
+/**
+ * Says exactly why nobody can approve, so HR knows what to fix.
+ * A short request from staff (AD, SO...) needs an active DD, with a login, in the
+ * SAME department. Only when there is none does it go to the CEO, so a "no CEO" error
+ * usually hides the real problem: the department has no usable DD.
+ */
+async function explainMissingApprover(opts: {
+  requesterId: string;
+  departmentId: string;
+  approverLevel: ApproverLevel;
+  /** true when this was a short staff request that looked for a department DD first */
+  escalatedFromDd: boolean;
+  days: number;
+}): Promise<string> {
+  const generic = `No active ${APPROVER_LABEL[opts.approverLevel]} login exists for this request. Set the approval level on the designation and make sure that employee is active.`;
+
+  if (opts.approverLevel !== "CEO" || !opts.escalatedFromDd) {
+    // e.g. a long request from staff goes straight to the CEO, by rule
+    if (opts.approverLevel === "CEO" && opts.days > SHORT_ROUTE_MAX_DAYS) {
+      return `This request is ${opts.days} working days. Requests of more than ${SHORT_ROUTE_MAX_DAYS} working days from staff go to the CEO, and no active CEO login exists. ${generic}`;
+    }
+    return generic;
+  }
+
+  const [department, ddsHere, ddsElsewhere] = await Promise.all([
+    prisma.department.findUnique({
+      where: { id: opts.departmentId },
+      select: { name: true },
+    }),
+    prisma.employee.findMany({
+      where: {
+        id: { not: opts.requesterId },
+        departmentId: opts.departmentId,
+        designation: { approvalLevel: "DD" },
+      },
+      select: {
+        name: true,
+        isActive: true,
+        user: { select: { isActive: true } },
+      },
+    }),
+    prisma.employee.findMany({
+      where: {
+        departmentId: { not: opts.departmentId },
+        isActive: true,
+        user: { is: { isActive: true } },
+        designation: { approvalLevel: "DD" },
+      },
+      select: { name: true, department: { select: { name: true } } },
+      take: 3,
+    }),
+  ]);
+
+  const dept = department?.name ?? "this department";
+  const lead = `This request goes to the DD of ${dept}, but no DD there can approve it`;
+  let reason: string;
+  if (ddsHere.length === 0) {
+    reason = `no employee in ${dept} has a designation with approval level "DD" (Designations page, then assign it to the DD under Employees)`;
+  } else {
+    const problems = ddsHere.map((d) =>
+      !d.isActive
+        ? `${d.name} is inactive`
+        : !d.user
+          ? `${d.name} has no login`
+          : `${d.name}'s login is deactivated`,
+    );
+    reason = problems.join("; ");
+  }
+  const elsewhere = ddsElsewhere.length
+    ? ` A DD only decides for their own department. Found DD(s) in other departments: ${ddsElsewhere
+        .map((d) => `${d.name} (${d.department.name})`)
+        .join(", ")}.`
+    : "";
+  return `${lead}: ${reason}.${elsewhere} It could not be sent to the CEO either, because no active CEO or Chairman login exists.`;
+}
+
 type RoutePlan = {
   approverLevel: ApproverLevel;
   approverDepartmentId: string | null;
@@ -229,7 +305,13 @@ async function planRoute(
   });
   if (!exists) {
     throw new ServiceError(
-      `No active ${APPROVER_LABEL[approverLevel]} login exists for this request. Set the approval level on the designation and make sure that employee is active.`,
+      await explainMissingApprover({
+        requesterId: employee.id,
+        departmentId: employee.departmentId,
+        approverLevel,
+        escalatedFromDd: route.sameDepartment,
+        days,
+      }),
     );
   }
   return { approverLevel, approverDepartmentId, routeNote };

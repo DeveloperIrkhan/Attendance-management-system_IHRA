@@ -1,13 +1,17 @@
 import { requireUser } from "@/lib/auth/authorization";
 import {
   getMyDashboardData,
-  resolveMyDate,
+  resolveMyView,
 } from "@/services/my-dashboard.service";
 import MyDashboard from "@/components/dashboard/MyDashboard";
 
 type SearchParams = Promise<{
   date?: string;
   month?: string;
+  from?: string;
+  to?: string;
+  year?: string;
+  status?: string;
 }>;
 /*
 A person's own attendance, by day and by month. 
@@ -33,8 +37,11 @@ export default async function MyDashboardPage({
   }
 
   // the id comes from the session, never from the URL
-  const date = await resolveMyDate(user.employeeId, sp.date, sp.month);
-  const data = await getMyDashboardData(user.employeeId, date);
+  const view = await resolveMyView(user.employeeId, sp);
+  const data = await getMyDashboardData(user.employeeId, view.date, {
+    period: view.period,
+    status: view.status,
+  });
   if (!data) {
     return (
       <div className="p-6">No employee record was found for your login.</div>

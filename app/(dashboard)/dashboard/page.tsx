@@ -13,7 +13,7 @@ import {
 } from "@/services/dashboard.service";
 import {
   getMyDashboardData,
-  resolveMyDate,
+  resolveMyView,
 } from "@/services/my-dashboard.service";
 import DashboardView from "@/components/dashboard/DashboardView";
 import MyDashboard from "@/components/dashboard/MyDashboard";
@@ -21,6 +21,10 @@ import MyDashboard from "@/components/dashboard/MyDashboard";
 type SearchParams = Promise<{
   date?: string;
   month?: string;
+  from?: string;
+  to?: string;
+  year?: string;
+  status?: string;
 }>;
 
 export default async function DashboardPage({
@@ -91,8 +95,11 @@ export default async function DashboardPage({
       );
     }
 
-    const date = await resolveMyDate(user.employeeId, sp.date, sp.month);
-    const myData = await getMyDashboardData(user.employeeId, date);
+    const view = await resolveMyView(user.employeeId, sp);
+    const myData = await getMyDashboardData(user.employeeId, view.date, {
+      period: view.period,
+      status: view.status,
+    });
     if (!myData) {
       return (
         <div className="p-6">No employee record was found for your login.</div>

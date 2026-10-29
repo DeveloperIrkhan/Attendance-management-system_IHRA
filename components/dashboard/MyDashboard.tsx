@@ -15,13 +15,13 @@ import AttendanceStatusBadge from "@/components/AttendanceStatusBadge";
 import LeaveStatusBadge from "@/components/LeaveStatusBadge";
 import MonthCalendar from "./MonthCalendar";
 import StatCard from "./StatCard";
-
-import { clockText, monthParam } from "@/lib/attendance/dates";
+import { clockText, monthParam, toIsoDate } from "@/lib/attendance/dates";
 import { formatMinutes } from "@/lib/attendance/duration";
-import { MONTHS } from "@/lib/attendance/months";
 import { STATUS_COLORS } from "@/lib/attendance/colors";
 import { APPROVER_LABEL } from "@/lib/leave/approval-routing";
 import type { MyDashboardData } from "@/services/my-dashboard.service";
+import { matchesStatus, periodQuery, statusFilterLabel, withStatus } from "@/lib/attendance/period";
+import MyAttendanceFilters from "../MyAttendanceFilters";
 
 type Props = {
   data: MyDashboardData;
@@ -113,9 +113,16 @@ export default function MyDashboard({
   fullName,
   basePath = "/dashboard",
 }: Props) {
-  const { summary, selected } = data;
-  const monthLabel = `${MONTHS[data.month - 1]} ${data.year}`;
+  const { selected, period, status } = data;
+  // Cards, charts and the day list follow the chosen period (month, date range or year).
+  const summary = data.periodSummary;
+  const monthLabel = period.label;
   const selectedIso = selected.iso;
+  const isMonth = period.kind === "month";
+  const filteredDays =
+    status === "ALL"
+      ? []
+      : data.periodDays.filter((d) => matchesStatus(d.status, status));
 
   const donutSegments = [
     { label: "On time", value: summary.present, color: STATUS_COLORS.present },
@@ -133,27 +140,27 @@ export default function MyDashboard({
     {
       name: "On time",
       color: STATUS_COLORS.present,
-      values: data.series.map((d) => d.present),
+      values: data.periodSeries.map((d) => d.present),
     },
     {
       name: "Late",
       color: STATUS_COLORS.late,
-      values: data.series.map((d) => d.late),
+      values: data.periodSeries.map((d) => d.late),
     },
     {
       name: "Absent",
       color: STATUS_COLORS.absent,
-      values: data.series.map((d) => d.absent),
+      values: data.periodSeries.map((d) => d.absent),
     },
     {
       name: "On leave",
       color: STATUS_COLORS.leave,
-      values: data.series.map((d) => d.leave),
+      values: data.periodSeries.map((d) => d.leave),
     },
     {
       name: "Missing punch",
       color: STATUS_COLORS.missing,
-      values: data.series.map((d) => d.missing),
+      values: data.periodSeries.map((d) => d.missing),
     },
   ];
 
@@ -192,10 +199,15 @@ export default function MyDashboard({
 
         <div className="flex flex-wrap gap-2">
           <Link
-            href={`/attendance/my?month=${monthParam(data.year, data.month)}`}
+            href={`/attendance/my${withStatus(
+              isMonth
+                ? { month: monthParam(data.year, data.month) }
+                : periodQuery(period),
+              status,
+            )}`}
             className="rounded-lg green-button-inverse hoverEffect"
           >
-            Full month table
+            Full attendance table
           </Link>
           <Link href="/leaves/request" className="green-button hoverEffect">
             + Request Leave
@@ -224,25 +236,78 @@ export default function MyDashboard({
           </button>
         </form>
 
-        <form method="get" action="/dashboard" className="flex items-end gap-2">
-          <div className="space-y-1">
-            <label htmlFor="my-month" className="text-sm font-medium">
-              Show a month
-            </label>
-            <input
-              id="my-month"
-              type="month"
-              name="month"
-              required
-              defaultValue={monthParam(data.year, data.month)}
-              className="block rounded border px-3 py-2 custom-input"
-            />
-          </div>
-          <button type="submit" className="green-button hoverEffect">
-            Show month
-          </button>
-        </form>
+        <MyAttendanceFilters
+          key={`${period.kind}-${toIsoDate(period.start)}-${toIsoDate(period.end)}-${status}`}
+          basePath={basePath}
+          kind={period.kind}
+          month={monthParam(data.year, data.month)}
+          year={period.start.getUTCFullYear()}
+          from={toIsoDate(period.start)}
+          to={toIsoDate(period.end)}
+          status={status}
+        />
       </section>
+
+      {period.clamped && (
+        <p className="rounded bg-amber-50 p-2 text-xs text-amber-800">
+          The range was longer than a year, so only the last 366 days up to
+          your end date are counted.
+        </p>
+      )}
+
+      {/* Days matching the status filter, e.g. every absent day in the period */}
+      {status !== "ALL" && (
+        <section className={`${card} overflow-hidden`}>
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div>
+              <h2 className="font-semibold">
+                {statusFilterLabel(status)} ({filteredDays.length})
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Days in {monthLabel} that match this status
+              </p>
+            </div>
+            <Link
+              href={`/attendance/my${withStatus(periodQuery(period), status)}`}
+              className="text-sm font-medium text-green-700 hover:underline"
+            >
+              Open full table
+            </Link>
+          </div>
+          {filteredDays.length === 0 ? (
+            <p className="px-5 pb-6 text-sm text-slate-500">
+              No days match this filter.
+            </p>
+          ) : (
+            <div className="max-h-96 overflow-auto">
+              <table className="w-full min-w-120 text-sm">
+                <thead className="sticky top-0 bg-slate-50 text-left text-slate-500">
+                  <tr>
+                    <th className="px-5 py-3 font-medium">Date</th>
+                    <th className="px-3 py-3 font-medium">Check in</th>
+                    <th className="px-3 py-3 font-medium">Check out</th>
+                    <th className="px-5 py-3 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDays.map((d) => (
+                    <tr key={d.iso} className="border-t border-slate-100">
+                      <td className="whitespace-nowrap px-5 py-3">
+                        {longDate(new Date(`${d.iso}T00:00:00Z`))}
+                      </td>
+                      <td className="px-3 py-3">{clockText(d.checkIn)}</td>
+                      <td className="px-3 py-3">{clockText(d.checkOut)}</td>
+                      <td className="px-5 py-3">
+                        <AttendanceStatusBadge status={d.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Selected day */}
       <section className={`${card} space-y-4 p-5`}>
@@ -309,7 +374,7 @@ export default function MyDashboard({
       {/* Month summary cards */}
       <section
         className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
-        aria-label="My monthly summary"
+        aria-label="My attendance summary"
       >
         <StatCard
           tint="green"
@@ -365,20 +430,29 @@ export default function MyDashboard({
           <div className="mb-3">
             <h2 className="font-semibold">My attendance overview</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Day by day for {monthLabel}
+              {data.periodDays.length > 62 ? "Month by month" : "Day by day"} for{" "}
+              {monthLabel}
             </p>
           </div>
           <BarChart
             ariaLabel={`My attendance for ${monthLabel}`}
-            labels={data.series.map((d) => String(d.day))}
+            labels={data.periodSeries.map((d) => d.label)}
             series={series}
-            labelEvery={2}
+            labelEvery={
+              data.periodSeries.length > 40
+                ? 5
+                : data.periodSeries.length > 16
+                  ? 2
+                  : 1
+            }
             height={300}
           />
         </div>
 
         <div className={`${card} p-5 xl:col-span-3`}>
-          <h2 className="mb-3 font-semibold">Monthly summary</h2>
+          <h2 className="mb-3 font-semibold">
+            {isMonth ? "Monthly summary" : "Summary"}
+          </h2>
           <DonutChart
             ariaLabel={`My attendance summary for ${monthLabel}`}
             segments={donutSegments}
