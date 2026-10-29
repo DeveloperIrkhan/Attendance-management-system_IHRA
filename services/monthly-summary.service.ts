@@ -116,7 +116,7 @@ export async function getMonthlySummary(
         { OR: [{ isActive: true }, { id: { in: ids } }] },
       ],
     },
-    orderBy: { id: "asc" },
+    orderBy: { employeeCode: "asc" },
     select: {
       id: true,
       name: true,

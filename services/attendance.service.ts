@@ -269,12 +269,13 @@ export async function getDailyAttendance(
 ) {
   const records = await prisma.attendance.findMany({
     where: { date, employee: employeeWhereFor(scope, departmentId) },
-    orderBy: { employee: { name: "asc" } },
+    orderBy: { employee: { employeeCode: "asc" } },
     include: {
       employee: {
         select: {
           name: true,
           employeeCode: true,
+          biometricId: true,
           department: { select: { name: true } },
         },
       },

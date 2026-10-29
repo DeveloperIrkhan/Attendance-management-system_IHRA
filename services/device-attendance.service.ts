@@ -2,18 +2,35 @@ import { prisma } from "../lib/prisma";
 import {
   evaluateDay,
   formatMinutes,
-  toMinutes,
   toRuleConfig,
+  type DayType,
 } from "../lib/attendance/attendance-rules";
+import { normalizeBiometricId } from "../lib/attendance/biometric-id";
+import { evaluateLiveDay } from "../lib/attendance/live-day";
+import { officeNow } from "../lib/attendance/office-clock";
 import type { AttendanceStatus } from "../lib/generated/prisma/client";
 
+const DAY_MS = 86_400_000;
+const SOURCE = "Source: uFace800";
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+
 /**
- * Rebuilds daily Attendance rows from the raw uFace800 DevicePunch log.
- * DevicePunch.punchedAt is treated as an office-clock timestamp, matching
- * this project’s existing convention of storing attendance clock times in UTC.
- * Manual attendance corrections are never overwritten.
+ * Turns the raw DevicePunch log into daily Attendance rows.
+ *
+ *  1. Every employee-day that has punches is evaluated with the same rules as the Excel import.
+ *     A lone check-in made today, before the shift ends, counts as present (not "Missing punch").
+ *  2. Every other day that is already over gets a row too: Absent (or On leave when a leave is
+ *     approved) for working days, Weekly off / Holiday otherwise. Without these rows an employee
+ *     who never punched would simply not appear, so they would not be counted as absent.
+ *
+ * Manual corrections are never overwritten, and existing rows are never replaced by step 2.
+ * DevicePunch.punchedAt must be an office-clock time (see lib/attendance/office-clock.ts).
+ *
+ * `sinceDays` limits the work to the last N days (used on every poll); leave it out to rebuild everything.
  */
-export async function processDevicePunches() {
+export async function processDevicePunches(
+  options: { sinceDays?: number } = {},
+) {
   const settings = await prisma.attendanceSettings.upsert({
     where: { id: "default" },
     update: {},
@@ -21,116 +38,160 @@ export async function processDevicePunches() {
   });
   const cfg = toRuleConfig(settings);
 
+  const { todayMs, minutes: nowMinutes } = officeNow();
+  const todayIso = iso(new Date(todayMs));
+  const since =
+    options.sinceDays === undefined
+      ? undefined
+      : new Date(todayMs - options.sinceDays * DAY_MS);
+
   const [employees, punches] = await Promise.all([
     prisma.employee.findMany({
-      where: { biometricId: { not: null } },
-      select: { id: true, biometricId: true, joiningDate: true, name: true },
+      select: {
+        id: true,
+        biometricId: true,
+        joiningDate: true,
+        isActive: true,
+      },
     }),
     prisma.devicePunch.findMany({
+      where: since ? { punchedAt: { gte: since } } : {},
       orderBy: [{ punchedAt: "asc" }, { deviceUserId: "asc" }],
-      select: {
-        deviceUserId: true,
-        punchedAt: true,
-      },
+      select: { deviceUserId: true, punchedAt: true },
     }),
   ]);
 
-  const employeeByBiometricId = new Map(
-    employees
-      .filter((employee) => employee.biometricId)
-      .map((employee) => [employee.biometricId!, employee]),
-  );
+  // "005" on the device and "5" on the employee are the same person (as in the Excel import).
+  const employeeByDeviceId = new Map<string, (typeof employees)[number]>();
+  for (const employee of employees) {
+    const key = normalizeBiometricId(employee.biometricId);
+    if (key) employeeByDeviceId.set(key, employee);
+  }
 
-  type PunchGroup = {
-    employeeId: string;
-    employeeName: string;
-    joiningDate: Date | null;
-    dateIso: string;
-    times: number[];
-  };
-  const groups = new Map<string, PunchGroup>();
+  type Group = { employeeId: string; dateIso: string; times: number[] };
+  const groups = new Map<string, Group>();
   const unmatchedIds = new Set<string>();
+  let firstPunchMs = Number.POSITIVE_INFINITY;
 
   for (const punch of punches) {
-    const deviceUserId = String(punch.deviceUserId).trim();
-    const employee = employeeByBiometricId.get(deviceUserId);
+    const employee = employeeByDeviceId.get(normalizeBiometricId(punch.deviceUserId));
     if (!employee) {
-      unmatchedIds.add(deviceUserId);
+      unmatchedIds.add(String(punch.deviceUserId).trim());
       continue;
     }
-
-    // The application uses UTC date/time components as office wall-clock time.
-    const dateIso = punch.punchedAt.toISOString().slice(0, 10);
-    const minutes = punch.punchedAt.getUTCHours() * 60 + punch.punchedAt.getUTCMinutes();
+    const dateIso = iso(punch.punchedAt);
     const key = `${employee.id}|${dateIso}`;
-    const group = groups.get(key) ?? {
-      employeeId: employee.id,
-      employeeName: employee.name,
-      joiningDate: employee.joiningDate,
-      dateIso,
-      times: [],
-    };
-    group.times.push(minutes);
+    const group = groups.get(key) ?? { employeeId: employee.id, dateIso, times: [] };
+    group.times.push(
+      punch.punchedAt.getUTCHours() * 60 + punch.punchedAt.getUTCMinutes(),
+    );
     groups.set(key, group);
+    firstPunchMs = Math.min(firstPunchMs, Date.parse(`${dateIso}T00:00:00.000Z`));
   }
 
-  // Load the calendar once per month represented in the punch data.
-  const monthKeys = new Set(
-    [...groups.values()].map((group) => group.dateIso.slice(0, 7)),
-  );
-  const calendarByMonth = new Map<string, { weeklyOffDays: number[]; holidays: Set<string> }>();
-  for (const monthKey of monthKeys) {
-    const [yearText, monthText] = monthKey.split("-");
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const [override, holidays] = await Promise.all([
-      prisma.monthlyOffDays.findUnique({ where: { year_month: { year, month } } }),
-      prisma.holiday.findMany({
-        where: {
-          date: {
-            gte: new Date(Date.UTC(year, month - 1, 1)),
-            lt: new Date(Date.UTC(year, month, 1)),
-          },
-        },
-        select: { date: true },
-      }),
-    ]);
-    calendarByMonth.set(monthKey, {
-      weeklyOffDays: override?.weeklyOffDays ?? settings.defaultWeeklyOffDays,
-      holidays: new Set(holidays.map((holiday) => holiday.date.toISOString().slice(0, 10))),
-    });
+  // Days to fill: from the start of the range up to the last day that is over.
+  // Recent mode always covers its whole window (so a day without any punch still closes);
+  // full mode starts at the first punch in the log.
+  const rangeStartMs = since ? since.getTime() : firstPunchMs;
+  const lastClosedMs = nowMinutes >= cfg.shiftEnd ? todayMs : todayMs - DAY_MS;
+  if (!Number.isFinite(rangeStartMs)) {
+    return emptySummary(punches.length, unmatchedIds);
   }
+  const rangeStart = new Date(rangeStartMs);
+  const rangeEnd = new Date(todayMs);
+
+  // Calendar (weekly off days and holidays) for each month in the range
+  const calendars = new Map<string, { off: number[]; holidays: Set<string> }>();
+  const dayTypeOf = async (date: Date): Promise<DayType> => {
+    const key = iso(date).slice(0, 7);
+    let calendar = calendars.get(key);
+    if (!calendar) {
+      const year = date.getUTCFullYear();
+      const month = date.getUTCMonth() + 1;
+      const [override, holidays] = await Promise.all([
+        prisma.monthlyOffDays.findUnique({ where: { year_month: { year, month } } }),
+        prisma.holiday.findMany({
+          where: {
+            date: {
+              gte: new Date(Date.UTC(year, month - 1, 1)),
+              lt: new Date(Date.UTC(year, month, 1)),
+            },
+          },
+          select: { date: true },
+        }),
+      ]);
+      calendar = {
+        off: override?.weeklyOffDays ?? settings.defaultWeeklyOffDays,
+        holidays: new Set(holidays.map((h) => iso(h.date))),
+      };
+      calendars.set(key, calendar);
+    }
+    if (calendar.holidays.has(iso(date))) return "HOLIDAY";
+    return calendar.off.includes(date.getUTCDay()) ? "WEEKEND" : "WORKING";
+  };
+
+  const [existing, leaves] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { date: { gte: rangeStart, lte: rangeEnd } },
+      select: { employeeId: true, date: true, isManual: true },
+    }),
+    prisma.leaveRequest.findMany({
+      where: {
+        status: "APPROVED",
+        startDate: { lte: rangeEnd },
+        endDate: { gte: rangeStart },
+      },
+      select: { employeeId: true, startDate: true, endDate: true },
+    }),
+  ]);
+  const existingKeys = new Set(existing.map((r) => `${r.employeeId}|${iso(r.date)}`));
+  const manualKeys = new Set(
+    existing.filter((r) => r.isManual).map((r) => `${r.employeeId}|${iso(r.date)}`),
+  );
+  const onLeave = (employeeId: string, date: Date) =>
+    leaves.some(
+      (l) => l.employeeId === employeeId && l.startDate <= date && l.endDate >= date,
+    );
+  const joinedBy = new Map(employees.map((e) => [e.id, e.joiningDate]));
 
   let processed = 0;
   let skippedManual = 0;
   let skippedBeforeJoining = 0;
 
+  // ---- 1. employee-days that have punches
+  const upserts = [];
   for (const group of groups.values()) {
     const date = new Date(`${group.dateIso}T00:00:00.000Z`);
-    if (group.joiningDate && group.dateIso < group.joiningDate.toISOString().slice(0, 10)) {
+    const joining = joinedBy.get(group.employeeId);
+    if (joining && group.dateIso < iso(joining)) {
       skippedBeforeJoining++;
       continue;
     }
-
-    const existing = await prisma.attendance.findUnique({
-      where: { employeeId_date: { employeeId: group.employeeId, date } },
-      select: { id: true, isManual: true },
-    });
-    if (existing?.isManual) {
+    if (manualKeys.has(`${group.employeeId}|${group.dateIso}`)) {
       skippedManual++;
       continue;
     }
 
-    const calendar = calendarByMonth.get(group.dateIso.slice(0, 7))!;
-    const dayOfWeek = date.getUTCDay();
-    const dayType = calendar.holidays.has(group.dateIso)
-      ? "HOLIDAY"
-      : calendar.weeklyOffDays.includes(dayOfWeek)
-        ? "WEEKEND"
-        : "WORKING";
+    const { result, note } = evaluateLiveDay(
+      {
+        dayType: await dayTypeOf(date),
+        punches: group.times,
+        isToday: group.dateIso === todayIso,
+        nowMinutes,
+      },
+      cfg,
+    );
 
-    const result = evaluateDay({ dayType, punches: group.times }, cfg);
-    const acceptedPunches = result.accepted.map(formatMinutes).join(" ");
+    let status = result.status as AttendanceStatus;
+    let remarks = [result.remarks, note].filter(Boolean).join("; ");
+    if (
+      (status === "ABSENT" || status === "INCOMPLETE") &&
+      onLeave(group.employeeId, date)
+    ) {
+      status = "ON_LEAVE";
+      remarks = "Approved leave";
+    }
+
     const data = {
       checkIn: result.checkIn === null ? null : new Date(date.getTime() + result.checkIn * 60_000),
       checkOut: result.checkOut === null ? null : new Date(date.getTime() + result.checkOut * 60_000),
@@ -138,27 +199,71 @@ export async function processDevicePunches() {
       lateMinutes: result.lateMinutes,
       earlyLeaveMinutes: result.earlyLeaveMinutes,
       overtimeMinutes: result.overtimeMinutes,
-      status: result.status as AttendanceStatus,
-      remarks: result.remarks ? `${result.remarks}; Source: uFace800` : "Source: uFace800",
-      punches: acceptedPunches || null,
+      status,
+      remarks: remarks ? `${remarks}; ${SOURCE}` : SOURCE,
+      punches: result.accepted.map(formatMinutes).join(" ") || null,
       sourceBatchId: null,
     };
-
-    await prisma.attendance.upsert({
-      where: { employeeId_date: { employeeId: group.employeeId, date } },
-      update: data,
-      create: { employeeId: group.employeeId, date, ...data },
-    });
+    upserts.push(
+      prisma.attendance.upsert({
+        where: { employeeId_date: { employeeId: group.employeeId, date } },
+        update: data,
+        create: { employeeId: group.employeeId, date, ...data },
+      }),
+    );
     processed++;
+  }
+  for (let i = 0; i < upserts.length; i += 100) {
+    await prisma.$transaction(upserts.slice(i, i + 100));
+  }
+
+  // ---- 2. days that are over, with no row yet: absent / on leave / weekly off / holiday
+  let filled = 0;
+  const activeEmployees = employees.filter((e) => e.isActive);
+  const fillRows = [];
+  for (let ms = rangeStartMs; ms <= lastClosedMs; ms += DAY_MS) {
+    const date = new Date(ms);
+    const dateIso = iso(date);
+    const dayType = await dayTypeOf(date);
+    for (const employee of activeEmployees) {
+      const key = `${employee.id}|${dateIso}`;
+      if (existingKeys.has(key) || groups.has(key)) continue;
+      if (employee.joiningDate && dateIso < iso(employee.joiningDate)) continue;
+
+      const result = evaluateDay({ dayType, punches: [] }, cfg);
+      let status = result.status as AttendanceStatus;
+      let remarks = result.remarks;
+      if (status === "ABSENT" && onLeave(employee.id, date)) {
+        status = "ON_LEAVE";
+        remarks = "Approved leave";
+      }
+      fillRows.push({
+        employeeId: employee.id,
+        date,
+        status,
+        remarks: remarks ? `${remarks}; ${SOURCE}` : SOURCE,
+        sourceBatchId: null,
+      });
+    }
+  }
+  for (let i = 0; i < fillRows.length; i += 500) {
+    const result = await prisma.attendance.createMany({
+      data: fillRows.slice(i, i + 500),
+      skipDuplicates: true, // never replaces a row that already exists
+    });
+    filled += result.count;
   }
 
   const summary = {
     rawPunches: punches.length,
     matchedEmployeeDays: groups.size,
     processed,
+    filledDaysWithoutPunches: filled,
     skippedManual,
     skippedBeforeJoining,
-    unmatchedDeviceUserIds: [...unmatchedIds].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    unmatchedDeviceUserIds: [...unmatchedIds].sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true }),
+    ),
   };
   console.log("uFace800 attendance processing summary:", summary);
   if (summary.unmatchedDeviceUserIds.length) {
@@ -167,5 +272,19 @@ export async function processDevicePunches() {
       summary.unmatchedDeviceUserIds.join(", "),
     );
   }
+  return summary;
+}
+
+function emptySummary(rawPunches: number, unmatched: Set<string>) {
+  const summary = {
+    rawPunches,
+    matchedEmployeeDays: 0,
+    processed: 0,
+    filledDaysWithoutPunches: 0,
+    skippedManual: 0,
+    skippedBeforeJoining: 0,
+    unmatchedDeviceUserIds: [...unmatched],
+  };
+  console.log("uFace800 attendance processing summary:", summary);
   return summary;
 }

@@ -11,6 +11,7 @@ import {
   Users,
   type LucideIcon,
   FingerprintPattern,
+  TriangleAlert,
 } from "lucide-react";
 import BarChart from "@/components/charts/BarChart";
 import ChartLegend from "@/components/charts/ChartLegend";
@@ -22,6 +23,8 @@ import { clockText, monthParam, toIsoDate } from "@/lib/attendance/dates";
 import { MONTHS } from "@/lib/attendance/months";
 import { STATUS_COLORS } from "@/lib/attendance/colors";
 import type { DashboardData } from "@/services/dashboard.service";
+import LeaveStatusBadge from "../LeaveStatusBadge";
+import RateBars from "./RateBars";
 
 export type DashboardPerms = {
   canImport: boolean;
@@ -517,7 +520,7 @@ export default function DashboardView({
         </section>
 
         {/* ---------- Leaves and activity ---------- */}
-        {/* <section className="grid items-start gap-4 xl:grid-cols-12">
+        <section className="grid items-start gap-4 xl:grid-cols-12">
           {perms.canLeaves && (
             <div className={`${card} overflow-hidden xl:col-span-9`}>
               <div className="flex items-center justify-between px-5 py-4">
@@ -602,10 +605,10 @@ export default function DashboardView({
               </ul>
             )}
           </div>
-        </section> */}
+        </section>
 
         {/* ---------- Insights ---------- */}
-        {/* <section className="grid gap-4 xl:grid-cols-2">
+        <section className="grid gap-4 xl:grid-cols-2">
           <div className={`${card} p-5`}>
             <h2 className={cardTitle}>When people arrive</h2>
             <p className="mb-3 text-sm text-slate-500">
@@ -645,14 +648,14 @@ export default function DashboardView({
             </p>
             <RateBars rows={data.departments} />
           </div>
-        </section> */}
+        </section>
 
-        {/* {attention.length > 0 && (
+        {attention.length > 0 && (
           <p className="flex items-center gap-2 text-xs text-slate-500">
             <TriangleAlert size={14} aria-hidden /> Items under &quot;Needs
             attention&quot; also appear on the bell icon.
           </p>
-        )} */}
+        )}
       </div>
     </div>
   );

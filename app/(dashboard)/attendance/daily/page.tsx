@@ -71,7 +71,6 @@ export default async function DailyAttendancePage({
     weekday: "long",
     timeZone: "UTC",
   });
-  console.log("records", records.length);
 
   return (
     <div className="space-y-4">
@@ -151,7 +150,7 @@ export default async function DailyAttendancePage({
         <table className="w-full text-sm">
           <thead className="bg-green-800 text-white text-left">
             <tr>
-              <th className="p-3">Code</th>
+              <th className="p-3">Biometric Id</th>
               <th className="p-3">Name</th>
               <th className="p-3">Department</th>
               <th className="p-3">In</th>
@@ -166,7 +165,7 @@ export default async function DailyAttendancePage({
           <tbody>
             {records.map((r) => (
               <tr key={r.id} className="border-t align-top">
-                <td className="p-3">{r.employee.employeeCode}</td>
+                <td className="p-3">{r.employee.biometricId}</td>
                 <td className="p-3 font-medium">{r.employee.name}</td>
                 <td className="p-3">{r.employee.department.name}</td>
                 <td className="p-3">{clockText(r.checkIn)}</td>
@@ -174,7 +173,7 @@ export default async function DailyAttendancePage({
                 <td className="p-3">
                   {r.workingMinutes ? formatMinutes(r.workingMinutes) : "-"}
                 </td>
-                <td className="p-3">{r.lateMinutes || "0"}</td>
+                <td className="p-3">{r.lateMinutes || "-"}</td>
                 <td className="p-3">
                   {r.overtimeMinutes ? formatMinutes(r.overtimeMinutes) : "-"}
                 </td>

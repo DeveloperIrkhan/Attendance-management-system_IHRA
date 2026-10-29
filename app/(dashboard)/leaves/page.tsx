@@ -42,8 +42,6 @@ export default async function LeavesPage({
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Leaves</h1>
-      <LeaveTabs active="/leaves" />
-
       {stuck > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
           <span>
