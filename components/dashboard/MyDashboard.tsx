@@ -19,6 +19,8 @@ import StatCard from "./StatCard";
 import BarChart from "../charts/BarChart";
 import DonutChart from "../charts/DonutChart";
 import MonthCalendar from "./MonthCalendar";
+import { APPROVER_LABEL } from "@/lib/leave/approval-routing";
+import LeaveStatusBadge from "../LeaveStatusBadge";
 
 type Props = {
   data: MyDashboardData;
