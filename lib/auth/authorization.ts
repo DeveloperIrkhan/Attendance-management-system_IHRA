@@ -28,6 +28,7 @@ export const getCurrentUser = cache(async () => {
           id: true,
           departmentId: true,
           designation: { select: { approvalLevel: true } },
+          additionalCharges: { select: { departmentId: true } },
         },
       },
     },
@@ -65,6 +66,9 @@ export function getApproverIdentity(user: AuthUser): ApproverIdentity | null {
     employeeId: user.employee.id,
     departmentId: user.employee.departmentId,
     level: user.employee.designation?.approvalLevel ?? "STAFF",
+    chargeDepartmentIds: user.employee.additionalCharges.map(
+      (c) => c.departmentId,
+    ),
   };
 }
 
@@ -78,6 +82,8 @@ export function getDataScope(user: AuthUser): DataScope {
     level: user.employee?.designation?.approvalLevel ?? "STAFF",
     employeeId: user.employee?.id ?? null,
     departmentId: user.employee?.departmentId ?? null,
+    chargeDepartmentIds:
+      user.employee?.additionalCharges.map((c) => c.departmentId) ?? [],
   });
 }
 

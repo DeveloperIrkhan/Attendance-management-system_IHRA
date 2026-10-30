@@ -58,7 +58,10 @@ export default async function DailyAttendancePage({
   ]);
   const ownDepartment =
     scope.kind === "DEPARTMENT"
-      ? departments.find((d) => d.id === scope.departmentId)?.name
+      ? departments
+          .filter((d) => scope.departmentIds.includes(d.id))
+          .map((d) => d.name)
+          .join(", ")
       : undefined;
 
   const iso = toIsoDate(date);

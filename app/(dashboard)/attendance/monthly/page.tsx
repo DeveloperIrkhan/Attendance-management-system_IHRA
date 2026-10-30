@@ -41,7 +41,10 @@ export default async function MonthlySummaryPage({
   ]);
   const ownDepartment =
     scope.kind === "DEPARTMENT"
-      ? departments.find((d) => d.id === scope.departmentId)?.name
+      ? departments
+          .filter((d) => scope.departmentIds.includes(d.id))
+          .map((d) => d.name)
+          .join(", ")
       : undefined;
 
   const prev = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };

@@ -18,8 +18,24 @@ model Department {
   name        String     @unique
   description String?
   employees   Employee[]
+  // DDs of other departments who also look after this department (additional charge)
+  chargeHolders DepartmentCharge[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+}
+
+/// A DD who also holds additional charge of another department.
+/// Leave requests of that department can then be decided by this DD as well.
+model DepartmentCharge {
+  id           String   @id @default(cuid())
+  employeeId   String
+  departmentId String
+  employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@unique([employeeId, departmentId])
+  @@index([departmentId])
 }
 
 model Designation {
@@ -51,6 +67,7 @@ model Employee {
   importedRows  ImportedAttendanceRow[]
   leaveRequests LeaveRequest[]
   shortLeaves   ShortLeave[]
+  additionalCharges DepartmentCharge[]
   user          User?
   createdAt     DateTime                @default(now())
   updatedAt     DateTime                @updatedAt

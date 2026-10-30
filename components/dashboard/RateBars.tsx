@@ -11,7 +11,7 @@ export default function RateBars({
   if (rows.length === 0) {
     return (
       <p className="py-6 text-center text-sm text-slate-500">
-        No attendance data for this month.
+        No attendance data for this period.
       </p>
     );
   }

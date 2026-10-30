@@ -59,7 +59,7 @@ export default function SidebarNav({
                 aria-current={isActive(item.href) ? "page" : undefined}
                 className={`flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm ${
                   isActive(item.href)
-                    ? "bg-black-800 text-white"
+                    ? "bg-green-800 text-white"
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
@@ -73,7 +73,7 @@ export default function SidebarNav({
   }
 
   return (
-    <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+    <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {sections.map((section) => (
         <div key={section.title}>
           <p className="px-3 pb-1.5 text-xs font-medium text-slate-500">

@@ -9,7 +9,7 @@ import { toIsoDate } from "@/lib/attendance/dates";
 import { prisma } from "@/lib/prisma";
 import {
   getDashboardData,
-  resolveDashboardDate,
+  resolveDashboardView,
 } from "@/services/dashboard.service";
 import {
   getMyDashboardData,
@@ -40,12 +40,13 @@ export default async function DashboardPage({
     // Manager dashboard. The scope limits every number on it:
     //   HR / IT Officer / Admin / CEO / Chairman -> the whole organization
     //   DD -> their own department only
-    const date = await resolveDashboardDate(sp.date, sp.month, scope);
+    const dashboardView = await resolveDashboardView(sp, scope);
     // import batches and the activity feed are only for people who can see attendance data
     const data = await getDashboardData(
-      date,
+      dashboardView.date,
       scope,
       hasPermission(user, PERMISSIONS.ATTENDANCE_VIEW),
+      dashboardView.period,
     );
     const now = new Date();
     const hour = now.getHours();
@@ -58,11 +59,13 @@ export default async function DashboardPage({
 
     let departmentName: string | undefined;
     if (scope.kind === "DEPARTMENT") {
-      const dept = await prisma.department.findUnique({
-        where: { id: scope.departmentId },
+      // the DD's own department plus any department they hold additional charge of
+      const depts = await prisma.department.findMany({
+        where: { id: { in: scope.departmentIds } },
         select: { name: true },
+        orderBy: { name: "asc" },
       });
-      departmentName = dept?.name;
+      departmentName = depts.map((d) => d.name).join(", ") || undefined;
     }
 
     return (

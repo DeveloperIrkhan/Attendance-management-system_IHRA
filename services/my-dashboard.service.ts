@@ -1,6 +1,5 @@
 import "server-only";
 
-import { prisma } from "@/lib/prisma";
 import {
   addDays,
   monthRange,
@@ -23,6 +22,7 @@ import {
   type MonthCalendar,
 } from "./settings.service";
 import type { DayTone } from "./dashboard.service";
+import { prisma } from "@/lib/prisma";
 
 export type MyDay = {
   iso: string;

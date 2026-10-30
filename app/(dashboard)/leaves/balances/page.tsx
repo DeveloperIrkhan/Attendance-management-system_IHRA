@@ -60,7 +60,7 @@ export default async function LeaveBalancesPage({
               {types.map((t) => (
                 <th key={t.id} className="p-3">
                   {t.name}
-                  <div className="text-xs font-normal text-zinc-500">
+                  <div className="text-xs font-normal text-white/50">
                     {t.yearlyQuotaDays === null
                       ? "no limit"
                       : `${t.yearlyQuotaDays} days`}

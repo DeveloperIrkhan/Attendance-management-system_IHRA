@@ -91,9 +91,10 @@ export default function AppShell({
     };
   }, []);
   return (
-    <div className="flex min-h-screen h-full bg-green-50 text-green-900">
-      <aside className="hidden w-64 shrink-0 flex-col bg-black lg:sticky lg:top-0 lg:flex lg:h-screen">
-        <div className="flex items-center gap-3 border-b border-green-800 px-5 py-5">
+    <div className="flex min-h-screen bg-green-50 text-green-900">
+      {/* Sidebar: fixed to the left edge, full screen height (large screens only) */}
+      <aside className="hidden w-64 flex-col bg-black lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:h-dvh">
+        <div className="flex items-center gap-3 shadow-2xl px-5 py-5">
           <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-white">
             <Image
               src={"/logo.png"}
@@ -136,7 +137,8 @@ export default function AppShell({
         )}
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* Main area: pl-64 leaves room for the fixed sidebar (same as the sidebar's w-64) */}
+      <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
         <header className="sticky top-0 z-20 border-b border-green-200 bg-white/95 backdrop-blur">
           <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-green-800 text-white lg:hidden">

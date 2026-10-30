@@ -1,16 +1,22 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import AttendanceStatusBadge from "@/components/AttendanceStatusBadge";
+import PeriodFilters from "@/components/PeriodFilters";
 import { clockText, monthParam, toIsoDate } from "@/lib/attendance/dates";
 import { formatMinutes } from "@/lib/attendance/duration";
+import {
+  matchesStatus,
+  periodQuery,
+  STATUS_FILTERS,
+  statusFilterLabel,
+  withStatus,
+} from "@/lib/attendance/period";
 import { requirePermission } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import {
   getMyDashboardData,
   resolveMyView,
 } from "@/services/my-dashboard.service";
-import { matchesStatus, periodQuery, STATUS_FILTERS, statusFilterLabel, withStatus } from "@/lib/attendance/period";
-import MyAttendanceFilters from "@/components/MyAttendanceFilters";
 
 type SearchParams = Promise<{
   date?: string;
@@ -117,7 +123,7 @@ export default async function MyAttendancePage({
       </div>
 
       <section className={`${card} space-y-4 p-4`}>
-        <MyAttendanceFilters
+        <PeriodFilters
           // remount when the URL changes so the form always shows what is applied
           key={`${period.kind}-${toIsoDate(period.start)}-${toIsoDate(period.end)}-${status}`}
           basePath={BASE}

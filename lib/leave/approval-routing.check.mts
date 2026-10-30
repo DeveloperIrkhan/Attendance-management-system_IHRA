@@ -55,6 +55,29 @@ assert.equal(
 );
 assert.equal(can(null, ddReq), false);
 
+// Additional charge: a DD of another department decides for departments they also look after
+assert.equal(
+  can(
+    { employeeId: "x", departmentId: "d2", level: "DD", chargeDepartmentIds: ["d1"] },
+    ddReq,
+  ),
+  true,
+);
+assert.equal(
+  can(
+    { employeeId: "x", departmentId: "d2", level: "DD", chargeDepartmentIds: ["d3"] },
+    ddReq,
+  ),
+  false,
+); // charge of some other department does not help
+assert.equal(
+  can(
+    { employeeId: "e1", departmentId: "d2", level: "DD", chargeDepartmentIds: ["d1"] },
+    ddReq,
+  ),
+  false,
+); // still never their own request
+
 const ceoReq = {
   employeeId: "e1",
   approverLevel: "CEO" as const,

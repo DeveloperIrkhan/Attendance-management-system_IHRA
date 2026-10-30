@@ -1,5 +1,5 @@
 export const STATUS_COLORS = {
-  present: "#16A34A",
+  present: "#006631",
   late: "#D97706",
   absent: "#DC2626",
   missing: "#7C3AED",

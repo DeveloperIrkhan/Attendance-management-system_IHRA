@@ -20,11 +20,11 @@ import AttendanceStatusBadge from "@/components/AttendanceStatusBadge";
 import MonthCalendar from "./MonthCalendar";
 import StatCard from "./StatCard";
 import { clockText, monthParam, toIsoDate } from "@/lib/attendance/dates";
-import { MONTHS } from "@/lib/attendance/months";
 import { STATUS_COLORS } from "@/lib/attendance/colors";
 import type { DashboardData } from "@/services/dashboard.service";
 import LeaveStatusBadge from "../LeaveStatusBadge";
 import RateBars from "./RateBars";
+import PeriodFilters from "@/components/PeriodFilters";
 
 export type DashboardPerms = {
   canImport: boolean;
@@ -92,7 +92,14 @@ export default function DashboardView({
   const worksToday = data.dayType === "WORKING" && day.expected > 0;
   const dash = "-";
 
-  const monthLabel = `${MONTHS[data.month - 1]} ${data.year}`;
+  const monthLabel = data.period.label;
+  const isMonth = data.period.kind === "month";
+  const periodDays =
+    Math.round((data.period.end.getTime() - data.period.start.getTime()) / 86_400_000) + 1;
+  // long periods are drawn one bar per month
+  const monthly = !isMonth && periodDays > 62;
+  const totals = data.monthTotals;
+  const totalAttended = totals.present + totals.shortLeave + totals.halfDay;
 
   const attention = [
     perms.canEditAttendance &&
@@ -221,25 +228,31 @@ export default function DashboardView({
               {iso !== todayIso &&
                 ", the latest day with data. Pick another day in the calendar."}
             </p>
+            {!isMonth && (
+              <p className="mt-1 text-sm text-slate-500">
+                Charts and totals below cover{" "}
+                <span className="font-medium text-green-800">{monthLabel}</span>
+                .
+              </p>
+            )}
+            {data.period.clamped && (
+              <p className="mt-1 text-xs text-amber-800">
+                The range was longer than a year, so only the last 366 days up
+                to your end date are counted.
+              </p>
+            )}
           </div>
-          <form method="get" className="flex items-center gap-2">
-            <label htmlFor="month" className="sr-only">
-              Month
-            </label>
-            <input
-              id="month"
-              type="month"
-              name="month"
-              defaultValue={monthParam(data.year, data.month)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-            />
-            <button
-              type="submit"
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-            >
-              Show
-            </button>
-          </form>
+          <PeriodFilters
+            key={`${data.period.kind}-${toIsoDate(data.period.start)}-${toIsoDate(data.period.end)}`}
+            basePath="/dashboard"
+            kind={data.period.kind}
+            month={monthParam(data.year, data.month)}
+            year={data.period.start.getUTCFullYear()}
+            from={toIsoDate(data.period.start)}
+            to={toIsoDate(data.period.end)}
+            status="ALL"
+            showStatus={false}
+          />
         </div>
 
         {data.dayType !== "WORKING" && (
@@ -310,24 +323,63 @@ export default function DashboardView({
           />
         </section>
 
+        {/* ---------- Totals for a custom range or year ---------- */}
+        {!isMonth && (
+          <section
+            className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+            aria-label="Totals for the chosen period"
+          >
+            <StatCard
+              tint="green"
+              icon={<CircleCheck size={22} aria-hidden />}
+              label="Attendance rate"
+              value={pct(totalAttended, totals.expected)}
+              sub={`${totalAttended} of ${totals.expected} working days, ${monthLabel}`}
+            />
+            <StatCard
+              tint="red"
+              icon={<CircleX size={22} aria-hidden />}
+              label="Absent days"
+              value={totals.absent}
+              sub={`${totals.missingPunch} missing punch`}
+            />
+            <StatCard
+              tint="amber"
+              icon={<CalendarDays size={22} aria-hidden />}
+              label="Late arrivals"
+              value={totals.shortLeave + totals.halfDay}
+              sub={`${totals.shortLeave} short leave, ${totals.halfDay} half day`}
+            />
+            <StatCard
+              tint="blue"
+              icon={<Plane size={22} aria-hidden />}
+              label="Leave days"
+              value={totals.onLeave}
+              sub="Approved leave days"
+            />
+          </section>
+        )}
+
         {/* ---------- Overview, summary, calendar ----------  */}
         <section className="grid gap-4 xl:grid-cols-12">
           <div className={`${card} p-5 xl:col-span-6`}>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className={cardTitle}>Attendance overview</h2>
               <span className="text-sm text-slate-500">
-                {monthLabel}, employees per day
+                {monthLabel}, employees per {monthly ? "month" : "day"}
               </span>
             </div>
             <BarChart
               ariaLabel={`Daily attendance for ${monthLabel}`}
-              labels={data.series.map((s) => String(s.day))}
+              labels={data.series.map((s) => s.label)}
               series={overviewSeries}
               muted={data.series.map((s) => s.isOff)}
               mutedTitle={data.series.map(
-                (s) => data.calendar[s.iso]?.title ?? "Day off",
+                (s) => s.title ?? data.calendar[s.iso]?.title ?? "Day off",
               )}
-              labelEvery={2}
+              labelEvery={
+                data.series.length > 40 ? 5 : data.series.length > 16 ? 2 : 1
+              }
               height={310}
             />
             <div className="mt-2">
@@ -487,13 +539,13 @@ export default function DashboardView({
               </div>
             )}
 
-            <div id="attention" className={`${card} scroll-mt-24 p-5`}>
+            <div id="attention" className={`${card} bg-green-800! text-white! scroll-mt-24 p-5`}>
               <h2 className={`${cardTitle} mb-3`}>Needs attention</h2>
               {attention.length === 0 ? (
-                <p className="flex items-center gap-2 text-sm text-slate-600">
+                <p className="flex items-center gap-2 text-sm text-white">
                   <CircleCheck
                     size={16}
-                    className="text-green-600"
+                    className="text-white"
                     aria-hidden
                   />
                   Everything is up to date.
@@ -504,12 +556,12 @@ export default function DashboardView({
                     <li key={a.text}>
                       <Link
                         href={a.href}
-                        className="flex items-start gap-3 rounded-lg p-1 text-sm hover:bg-slate-50"
+                        className="flex items-start gap-3 rounded-lg p-2 text-sm hover:bg-green-700 duration-300"
                       >
-                        <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-semibold tabular-nums text-amber-800">
+                        <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-white px-1.5 text-xs font-semibold tabular-nums text-green-800">
                           {a.count}
                         </span>
-                        <span className="pt-0.5 text-slate-700">{a.text}</span>
+                        <span className="pt-0.5 text-white">{a.text}</span>
                       </Link>
                     </li>
                   ))}
@@ -617,7 +669,7 @@ export default function DashboardView({
             </p>
             {data.histogram.total === 0 ? (
               <p className="py-10 text-center text-sm text-slate-500">
-                No check-ins this month.
+                No check-ins in this period.
               </p>
             ) : (
               <BarChart

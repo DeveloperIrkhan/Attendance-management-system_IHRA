@@ -7,7 +7,7 @@ import ScrollTable from "@/components/ScrollTable";
 import { decideLeaveRequestAction } from "../actions";
 
 const SCOPE: Record<string, string> = {
-  DD: "leave requests of staff in your department (up to 3 working days)",
+  DD: "leave requests of staff in your department, and in any department you hold additional charge of (up to 3 working days)",
   CEO: "requests routed to the CEO, and requests routed to a DD (you hold parent rights over DDs)",
   CHAIRMAN:
     "requests routed to the Chairman, and requests routed to the CEO or a DD (you hold parent rights over both)",

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
-import Spinner from "@/components/Spinner";
+import Spinner from "../../../components/Spinner";
 
 export default function LoginPage() {
   const router = useRouter();

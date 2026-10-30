@@ -3,11 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { employeeWhereFor, type DataScope } from "@/lib/auth/data-scope";
 import { toMinutes } from "@/lib/attendance/attendance-rules";
 import {
+  addDays,
   monthRange,
   parseIsoDate,
   parseMonthParam,
   toIsoDate,
 } from "@/lib/attendance/dates";
+import { MONTHS } from "@/lib/attendance/months";
+import {
+  monthPeriod,
+  parseCustomPeriod,
+  type Period,
+  type PeriodParams,
+} from "@/lib/attendance/period";
 import {
   getMonthCalendar,
   getSettings,
@@ -74,6 +82,10 @@ export type DayTone = "good" | "fair" | "poor" | "off" | "holiday" | "none";
 export type SeriesPoint = {
   iso: string;
   day: number;
+  /** x-axis text: the day number, "12 Oct", or a month name for long periods */
+  label: string;
+  /** hover text for days off */
+  title?: string;
   isOff: boolean;
   present: number;
   late: number;
@@ -104,6 +116,8 @@ export type DashboardData = {
   date: Date;
   year: number;
   month: number;
+  /** what the charts and totals cover: a month (default), a date range or a year */
+  period: Period;
   dayType: "WORKING" | "WEEKEND" | "HOLIDAY";
   holidayName: string | null;
   hasDayData: boolean;
@@ -198,6 +212,102 @@ export async function resolveDashboardDate(
   return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 }
 
+/**
+ * Reads ?from= &to= &year= (a custom period) as well as ?date= and ?month=.
+ * `period` is null for the normal month view.
+ */
+export async function resolveDashboardView(
+  sp: PeriodParams,
+  scope: DataScope = { kind: "ALL" },
+): Promise<{ date: Date; period: Period | null }> {
+  const custom = parseCustomPeriod(sp);
+  if (custom) {
+    const latest = await prisma.attendance.aggregate({
+      _max: { date: true },
+      where: {
+        date: { gte: custom.start, lte: custom.end },
+        employee: employeeWhereFor(scope),
+      },
+    });
+    return { date: latest._max.date ?? custom.start, period: custom };
+  }
+  return {
+    date: await resolveDashboardDate(sp.date, sp.month, scope),
+    period: null,
+  };
+}
+
+/** Chart points for a custom period: one per day, or one per month when it is long. */
+function buildPeriodSeries(
+  period: Period,
+  perDay: Map<string, DayCounts>,
+  calendars: Map<string, Awaited<ReturnType<typeof getMonthCalendar>>>,
+): SeriesPoint[] {
+  const days: Date[] = [];
+  for (let d = period.start; d <= period.end; d = addDays(d, 1)) days.push(d);
+  const monthName = (d: Date) => MONTHS[d.getUTCMonth()].slice(0, 3);
+  const sameMonth =
+    toIsoDate(period.start).slice(0, 7) === toIsoDate(period.end).slice(0, 7);
+  const sameYear = period.start.getUTCFullYear() === period.end.getUTCFullYear();
+
+  if (days.length <= 62) {
+    return days.map((d) => {
+      const iso = toIsoDate(d);
+      const c = perDay.get(iso) ?? emptyCounts();
+      const cal = calendars.get(`${d.getUTCFullYear()}-${d.getUTCMonth() + 1}`)!;
+      const type = makeDayTypeResolver(cal)(d);
+      const holiday =
+        type === "HOLIDAY"
+          ? cal.holidays.find((h) => toIsoDate(h.date) === iso)?.title
+          : undefined;
+      return {
+        iso,
+        day: d.getUTCDate(),
+        label: sameMonth ? String(d.getUTCDate()) : `${d.getUTCDate()} ${monthName(d)}`,
+        title:
+          type === "HOLIDAY"
+            ? `Holiday: ${holiday ?? ""}`
+            : type === "WEEKEND"
+              ? "Weekly off"
+              : undefined,
+        isOff: type !== "WORKING",
+        present: c.present,
+        late: c.shortLeave + c.halfDay,
+        absent: c.absent,
+        missing: c.missingPunch,
+        leave: c.onLeave,
+      };
+    });
+  }
+
+  const byMonth = new Map<string, SeriesPoint>();
+  for (const d of days) {
+    const key = toIsoDate(d).slice(0, 7);
+    let point = byMonth.get(key);
+    if (!point) {
+      point = {
+        iso: `${key}-01`,
+        day: 1,
+        label: sameYear ? monthName(d) : `${monthName(d)} ${key.slice(2, 4)}`,
+        isOff: false,
+        present: 0,
+        late: 0,
+        absent: 0,
+        missing: 0,
+        leave: 0,
+      };
+      byMonth.set(key, point);
+    }
+    const c = perDay.get(toIsoDate(d)) ?? emptyCounts();
+    point.present += c.present;
+    point.late += c.shortLeave + c.halfDay;
+    point.absent += c.absent;
+    point.missing += c.missingPunch;
+    point.leave += c.onLeave;
+  }
+  return [...byMonth.values()];
+}
+
 const PRIORITY: Record<string, number> = {
   INCOMPLETE: 0,
   ABSENT: 1,
@@ -209,16 +319,37 @@ const PRIORITY: Record<string, number> = {
   HOLIDAY: 6,
 };
 
+/** The weekly-off days and holidays of every month a period touches, loaded once each. */
+async function loadCalendars(period: Period) {
+  const keys: { year: number; month: number }[] = [];
+  const seen = new Set<string>();
+  for (let d = period.start; d <= period.end; d = addDays(d, 1)) {
+    const key = `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      keys.push({ year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 });
+    }
+  }
+  const loaded = await Promise.all(
+    keys.map((k) => getMonthCalendar(k.year, k.month)),
+  );
+  return new Map(keys.map((k, i) => [`${k.year}-${k.month}`, loaded[i]]));
+}
+
 export async function getDashboardData(
   date: Date,
   scope: DataScope = { kind: "ALL" },
   includeSystem = true,
+  customPeriod: Period | null = null,
 ): Promise<DashboardData> {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
   const employee = employeeWhereFor(scope);
 
   const { start, end } = monthRange(year, month);
+  // The charts and totals follow this period; the calendar and day table stay on the month.
+  const period = customPeriod ?? monthPeriod(year, month);
+  const periodEnd = addDays(period.end, 1); // exclusive
 
   // Load settings, calendar, and dashboard queries together.
   const [
@@ -235,6 +366,8 @@ export async function getDashboardData(
     unmatchedRows,
     recentLeaves,
     lastImport,
+    customRows,
+    customCalendars,
   ] = await Promise.all([
     getSettings(),
     getMonthCalendar(year, month),
@@ -251,7 +384,7 @@ export async function getDashboardData(
     prisma.employee.count({
       where: {
         isActive: true,
-        joiningDate: { gte: start, lt: end },
+        joiningDate: { gte: period.start, lt: periodEnd },
         ...employee,
       },
     }),
@@ -364,7 +497,34 @@ export async function getDashboardData(
           },
         })
       : Promise.resolve(null),
+
+    // A custom range or year: its own attendance records and month calendars.
+    customPeriod
+      ? prisma.attendance.findMany({
+          where: {
+            date: { gte: period.start, lt: periodEnd },
+            employee,
+          },
+          select: {
+            date: true,
+            status: true,
+            checkIn: true,
+            employee: {
+              select: {
+                department: {
+                  select: { name: true },
+                },
+              },
+            },
+          },
+        })
+      : Promise.resolve(null),
+    customPeriod
+      ? loadCalendars(period)
+      : Promise.resolve(null),
   ]);
+
+  const periodRows = customRows ?? monthRows;
 
   // Determine working days, weekends, and holidays.
   const dayTypeOf = makeDayTypeResolver(calendar);
@@ -375,7 +535,8 @@ export async function getDashboardData(
   // Attendance statistics grouped by department.
   const perDept = new Map<string, { attended: number; expected: number }>();
 
-  const monthTotals = emptyCounts();
+  const monthTotals = emptyCounts(); // totals for the whole period
+  const periodPerDay = new Map<string, DayCounts>();
 
   // Starting point for the check-in time chart.
   const histStart = Math.max(
@@ -392,14 +553,21 @@ export async function getDashboardData(
       ? 0
       : Math.min(binCount + 1, Math.floor((minutes - histStart) / 15) + 1);
 
-  // Process monthly attendance.
+  // The selected month drives the calendar.
   for (const record of monthRows) {
     const iso = toIsoDate(record.date);
-
     const counts = perDay.get(iso) ?? emptyCounts();
-
     addStatus(counts, record.status);
     perDay.set(iso, counts);
+  }
+
+  // The period drives the totals, the department rates and the arrival histogram.
+  for (const record of periodRows) {
+    const iso = toIsoDate(record.date);
+
+    const counts = periodPerDay.get(iso) ?? emptyCounts();
+    addStatus(counts, record.status);
+    periodPerDay.set(iso, counts);
 
     addStatus(monthTotals, record.status);
 
@@ -455,6 +623,7 @@ export async function getDashboardData(
     series.push({
       iso,
       day: dayNumber,
+      label: String(dayNumber),
       isOff: type !== "WORKING",
       present: counts.present,
       late: counts.shortLeave + counts.halfDay,
@@ -555,13 +724,17 @@ export async function getDashboardData(
     date,
     year,
     month,
+    period,
     dayType: dayTypeOf(date),
     holidayName: holidayByIso.get(toIsoDate(date)) ?? null,
     hasDayData: dayRows.length > 0,
     totalEmployees,
     newThisMonth,
     day,
-    series,
+    series:
+      customPeriod && customCalendars
+        ? buildPeriodSeries(period, periodPerDay, customCalendars)
+        : series,
     calendar: calendarOut,
     todayRows: todayAll.slice(0, 10),
     todayTotal: todayAll.length,

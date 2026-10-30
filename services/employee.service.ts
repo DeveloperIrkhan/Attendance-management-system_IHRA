@@ -35,7 +35,8 @@ export async function listEmployees(
       { biometricId: { contains: textSearch } },
     ];
   }
-  if (filters.departmentId) where.departmentId = filters.departmentId;
+  // The department filter is applied inside employeeWhereFor, which keeps a DD
+  // within their own departments.
   if (filters.status === "active") where.isActive = true;
   if (filters.status === "inactive") where.isActive = false;
 

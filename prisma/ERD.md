@@ -15,6 +15,12 @@ erDiagram
   DateTime createdAt
   DateTime updatedAt
 }
+"DepartmentCharge" {
+  String id PK
+  String employeeId FK
+  String departmentId FK
+  DateTime createdAt
+}
 "Designation" {
   String id PK
   String title UK
@@ -202,6 +208,8 @@ erDiagram
   DateTime createdAt
   DateTime updatedAt
 }
+"DepartmentCharge" }o--|| "Employee" : employee
+"DepartmentCharge" }o--|| "Department" : department
 "Employee" }o--|| "Department" : department
 "Employee" }o--o| "Designation" : designation
 "Attendance" }o--|| "Employee" : employee
@@ -225,6 +233,18 @@ Properties as follows:
 - `description`:
 - `createdAt`:
 - `updatedAt`:
+
+### `DepartmentCharge`
+
+A DD who also holds additional charge of another department.
+Leave requests of that department can then be decided by this DD as well.
+
+Properties as follows:
+
+- `id`:
+- `employeeId`:
+- `departmentId`:
+- `createdAt`:
 
 ### `Designation`
 

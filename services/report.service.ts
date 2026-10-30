@@ -84,14 +84,13 @@ export async function buildReport(
 
   let departmentName: string | undefined;
   if (scope.kind === "DEPARTMENT" || params.department) {
-    const dept = await prisma.department.findUnique({
-      where: {
-        id:
-          scope.kind === "DEPARTMENT" ? scope.departmentId : params.department!,
-      },
+    const ids =
+      scope.kind === "DEPARTMENT" ? scope.departmentIds : [params.department!];
+    const depts = await prisma.department.findMany({
+      where: { id: { in: ids } },
       select: { name: true },
     });
-    departmentName = dept?.name;
+    departmentName = depts.map((d) => d.name).join(", ") || undefined;
   }
   const who =
     scope.kind === "DEPARTMENT" || departmentName

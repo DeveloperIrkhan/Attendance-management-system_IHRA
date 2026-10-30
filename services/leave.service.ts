@@ -165,8 +165,18 @@ async function hasActiveApprover(
       OR: [
         {
           designation: { approvalLevel: level },
+          // a DD counts inside their own department and where they hold additional charge
           ...(level === "DD" && opts.departmentId
-            ? { departmentId: opts.departmentId }
+            ? {
+                OR: [
+                  { departmentId: opts.departmentId },
+                  {
+                    additionalCharges: {
+                      some: { departmentId: opts.departmentId },
+                    },
+                  },
+                ],
+              }
             : {}),
         },
         ...(higher.length
@@ -211,8 +221,11 @@ async function explainMissingApprover(opts: {
     prisma.employee.findMany({
       where: {
         id: { not: opts.requesterId },
-        departmentId: opts.departmentId,
         designation: { approvalLevel: "DD" },
+        OR: [
+          { departmentId: opts.departmentId },
+          { additionalCharges: { some: { departmentId: opts.departmentId } } },
+        ],
       },
       select: {
         name: true,
@@ -223,6 +236,7 @@ async function explainMissingApprover(opts: {
     prisma.employee.findMany({
       where: {
         departmentId: { not: opts.departmentId },
+        additionalCharges: { none: { departmentId: opts.departmentId } },
         isActive: true,
         user: { is: { isActive: true } },
         designation: { approvalLevel: "DD" },
@@ -236,7 +250,7 @@ async function explainMissingApprover(opts: {
   const lead = `This request goes to the DD of ${dept}, but no DD there can approve it`;
   let reason: string;
   if (ddsHere.length === 0) {
-    reason = `no employee in ${dept} has a designation with approval level "DD" (Designations page, then assign it to the DD under Employees)`;
+    reason = `no employee in ${dept} has a designation with approval level "DD", and no DD has been given additional charge of it (Departments page, "Additional charge")`;
   } else {
     const problems = ddsHere.map((d) =>
       !d.isActive
@@ -248,7 +262,7 @@ async function explainMissingApprover(opts: {
     reason = problems.join("; ");
   }
   const elsewhere = ddsElsewhere.length
-    ? ` A DD only decides for their own department. Found DD(s) in other departments: ${ddsElsewhere
+    ? ` A DD only decides for their own department or one they hold additional charge of. Found DD(s) in other departments: ${ddsElsewhere
         .map((d) => `${d.name} (${d.department.name})`)
         .join(", ")}.`
     : "";
@@ -280,14 +294,21 @@ async function planRoute(
   let routeNote: string | null = null;
 
   if (route.sameDepartment) {
-    // Only a DD of this department may decide a short request: otherwise escalate.
+    // Only a DD of this department may decide a short request. That is the department's own
+    // DD, or a DD of another department who holds additional charge of it (departments
+    // without a DD of their own). If there is nobody, escalate.
     const ownDd = await prisma.employee.findFirst({
       where: {
         id: { not: employee.id },
         isActive: true,
-        departmentId: employee.departmentId,
         designation: { approvalLevel: "DD" },
         user: { is: { isActive: true } },
+        OR: [
+          { departmentId: employee.departmentId },
+          {
+            additionalCharges: { some: { departmentId: employee.departmentId } },
+          },
+        ],
       },
       select: { id: true },
     });
@@ -295,7 +316,8 @@ async function planRoute(
       approverDepartmentId = employee.departmentId;
     } else {
       approverLevel = "CEO";
-      routeNote = "No active DD in this department, sent to the CEO";
+      routeNote =
+        "No active DD (or additional-charge DD) for this department, sent to the CEO";
     }
   }
 
@@ -598,7 +620,12 @@ export async function listPendingForApprover(user: AuthUser) {
       employeeId: { not: me.employeeId },
       OR: [
         me.level === "DD"
-          ? { approverLevel: "DD", approverDepartmentId: me.departmentId }
+          ? {
+              approverLevel: "DD",
+              approverDepartmentId: {
+                in: [me.departmentId, ...(me.chargeDepartmentIds ?? [])],
+              },
+            }
           : { approverLevel: me.level },
         ...(lowerLevels.length
           ? [{ approverLevel: { in: lowerLevels } }]

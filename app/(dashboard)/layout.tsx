@@ -1,15 +1,9 @@
-import { Suspense } from "react";
-import { PERMISSIONS, type Permission } from "@/lib/auth/permissions";
-import AppShell from "@/components/shell/AppShell";
-import { buildNav } from "@/components/shell/nav";
-import { getShellData } from "@/services/dashboard.service";
-import {
-  getApproverIdentity,
-  getDataScope,
-  hasPermission,
-  requireUser,
-} from "@/lib/auth/authorization";
-import { countPendingForApprover } from "@/services/leave.service";
+import AppShell from "../../components/shell/AppShell";
+import { buildNav } from "../../components/shell/nav";
+import { getApproverIdentity, getDataScope, hasPermission, requireUser } from "../../lib/auth/authorization";
+import { Permission, PERMISSIONS } from "../../lib/auth/permissions";
+import { getShellData } from "../../services/dashboard.service";
+import { countPendingForApprover } from "../../services/leave.service";
 
 async function AuthShell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();

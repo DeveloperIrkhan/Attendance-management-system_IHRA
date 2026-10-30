@@ -1,9 +1,14 @@
 import SimpleForm from "@/components/SimpleForm";
 import { requirePermission } from "@/lib/auth/authorization";
-import { listDepartments } from "@/services/department.service";
 import {
+  listDdEmployees,
+  listDepartmentsWithApprovers,
+} from "@/services/department.service";
+import {
+  addDepartmentChargeAction,
   createDepartmentActionAsync,
   deleteDepartmentAction,
+  removeDepartmentChargeAction,
   updateDepartmentAction,
 } from "./actions";
 import { PERMISSIONS } from "@/lib/auth/permissions";
@@ -11,7 +16,10 @@ import RowActionForm from "@/components/RowActionForm";
 
 export default async function DepartmentsPage() {
   await requirePermission(PERMISSIONS.DEPARTMENTS_MANAGE);
-  const departments = await listDepartments();
+  const [departments, ddEmployees] = await Promise.all([
+    listDepartmentsWithApprovers(),
+    listDdEmployees(),
+  ]);
 
   return (
     <div className="w-full">
@@ -44,13 +52,14 @@ export default async function DepartmentsPage() {
                 <th className="p-3">Name</th>
                 <th className="p-3">Description</th>
                 <th className="p-3">Employees</th>
+                <th className="p-3">Leave approver (DD)</th>
                 <th className="p-3">Actions</th>
               </tr>
             </thead>
             <tbody>
               {departments.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="p-4 text-center text-zinc-500">
+                  <td colSpan={5} className="p-4 text-center text-zinc-500">
                     No departments yet.
                   </td>
                 </tr>
@@ -60,6 +69,78 @@ export default async function DepartmentsPage() {
                   <td className="p-3 font-medium">{d.name}</td>
                   <td className="p-3 text-zinc-600">{d.description ?? "-"}</td>
                   <td className="p-3">{d._count.employees}</td>
+                  <td className="p-3">
+                    <p className="text-xs text-zinc-500">DD of this department</p>
+                    <p>
+                      {d.employees.length > 0
+                        ? d.employees.map((e) => e.name).join(", ")
+                        : "None"}
+                    </p>
+                    <p className="mt-2 text-xs text-zinc-500">
+                      Additional charge DD
+                    </p>
+                    {d.chargeHolders.length === 0 ? (
+                      <p>None</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {d.chargeHolders.map((c) => (
+                          <li
+                            key={c.id}
+                            className="flex flex-wrap items-center gap-x-3"
+                          >
+                            <span>
+                              {c.employee.name}{" "}
+                              <span className="text-xs text-zinc-500">
+                                ({c.employee.department.name})
+                              </span>
+                            </span>
+                            <RowActionForm
+                              action={removeDepartmentChargeAction}
+                              id={c.id}
+                              label="Remove"
+                              danger
+                              confirmMessage={`Remove ${c.employee.name}'s additional charge of ${d.name}?`}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {d.employees.length === 0 &&
+                      d.chargeHolders.length === 0 && (
+                        <p className="mt-1 text-xs text-amber-700">
+                          No approver: short leaves go to the CEO.
+                        </p>
+                      )}
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs underline">
+                        Add additional charge
+                      </summary>
+                      <div className="mt-2 max-w-xs">
+                        <SimpleForm
+                          action={addDepartmentChargeAction}
+                          resetOnSuccess
+                          submitLabel="Give charge"
+                          hidden={{ id: d.id }}
+                          fields={[
+                            {
+                              name: "employeeId",
+                              label: "DD",
+                              required: true,
+                              options: [
+                                { value: "", label: "Select a DD" },
+                                ...ddEmployees
+                                  .filter((e) => e.departmentId !== d.id)
+                                  .map((e) => ({
+                                    value: e.id,
+                                    label: `${e.name} (${e.department.name})`,
+                                  })),
+                              ],
+                            },
+                          ]}
+                        />
+                      </div>
+                    </details>
+                  </td>
                   <td className="space-y-2 p-3">
                     <details>
                       <summary className="cursor-pointer text-xs underline">

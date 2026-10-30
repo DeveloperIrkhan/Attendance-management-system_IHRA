@@ -61,6 +61,8 @@ export type ApproverIdentity = {
   employeeId: string;
   departmentId: string;
   level: ApprovalLevel;
+  /** other departments this DD also looks after (additional charge) */
+  chargeDepartmentIds?: string[];
 };
 
 export type RoutedRequest = {
@@ -88,9 +90,13 @@ export function canDecideRequest(
   if (approver.level !== request.approverLevel) return false;
 
   if (request.approverLevel === "DD") {
+    // A DD decides for their own department and for any department they hold additional charge of.
     return (
       request.approverDepartmentId !== null &&
-      approver.departmentId === request.approverDepartmentId
+      (approver.departmentId === request.approverDepartmentId ||
+        (approver.chargeDepartmentIds ?? []).includes(
+          request.approverDepartmentId,
+        ))
     );
   }
   return true;

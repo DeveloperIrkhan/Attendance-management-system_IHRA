@@ -54,7 +54,7 @@ export async function getMonthlySummary(
   const records = await prisma.attendance.findMany({
     where: {
       date: { gte: start, lt: end },
-      ...(departmentId ? { employee: employeeFilter } : {}),
+      employee: employeeFilter, // always applied, so a DD never sees outside their departments
     },
     select: {
       employeeId: true,
@@ -100,7 +100,7 @@ export async function getMonthlySummary(
     where: {
       status: "APPROVED",
       date: { gte: start, lt: end },
-      ...(departmentId ? { employee: employeeFilter } : {}),
+      employee: employeeFilter, // always applied, so a DD never sees outside their departments
     },
     select: { employeeId: true, durationMinutes: true },
   });
@@ -112,7 +112,7 @@ export async function getMonthlySummary(
   const employees = await prisma.employee.findMany({
     where: {
       AND: [
-        departmentId ? { departmentId } : {},
+        employeeFilter,
         { OR: [{ isActive: true }, { id: { in: ids } }] },
       ],
     },

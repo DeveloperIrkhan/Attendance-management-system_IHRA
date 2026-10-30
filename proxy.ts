@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth/jwt";
+import { SESSION_COOKIE, verifySessionToken } from "./lib/auth/jwt";
 
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout"];
 

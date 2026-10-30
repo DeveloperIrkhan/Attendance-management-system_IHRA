@@ -8,20 +8,17 @@ import {
   Plane,
   Timer,
 } from "lucide-react";
-
-import BarChart from "@/components/charts/BarChart";
-import DonutChart from "@/components/charts/DonutChart";
-import AttendanceStatusBadge from "@/components/AttendanceStatusBadge";
-import LeaveStatusBadge from "@/components/LeaveStatusBadge";
-import MonthCalendar from "./MonthCalendar";
-import StatCard from "./StatCard";
-import { clockText, monthParam, toIsoDate } from "@/lib/attendance/dates";
-import { formatMinutes } from "@/lib/attendance/duration";
-import { STATUS_COLORS } from "@/lib/attendance/colors";
-import { APPROVER_LABEL } from "@/lib/leave/approval-routing";
-import type { MyDashboardData } from "@/services/my-dashboard.service";
+import { MyDashboardData } from "@/services/my-dashboard.service";
 import { matchesStatus, periodQuery, statusFilterLabel, withStatus } from "@/lib/attendance/period";
-import MyAttendanceFilters from "../MyAttendanceFilters";
+import { STATUS_COLORS } from "@/lib/attendance/colors";
+import { clockText, monthParam, toIsoDate } from "@/lib/attendance/dates";
+import PeriodFilters from "../PeriodFilters";
+import AttendanceStatusBadge from "../AttendanceStatusBadge";
+import { formatMinutes } from "@/lib/attendance/attendance-rules";
+import StatCard from "./StatCard";
+import BarChart from "../charts/BarChart";
+import DonutChart from "../charts/DonutChart";
+import MonthCalendar from "./MonthCalendar";
 
 type Props = {
   data: MyDashboardData;
@@ -236,7 +233,7 @@ export default function MyDashboard({
           </button>
         </form>
 
-        <MyAttendanceFilters
+        <PeriodFilters
           key={`${period.kind}-${toIsoDate(period.start)}-${toIsoDate(period.end)}-${status}`}
           basePath={basePath}
           kind={period.kind}
