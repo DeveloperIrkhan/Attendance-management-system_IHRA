@@ -3,12 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "start": "next start",
-    "lint": "eslint",
-    "postinstall": "prisma generate",
-    "build": "prisma generate && next build"
-  },
+  "dev": "concurrently -k -n web,sync -c green,cyan \"next dev\" \"tsx scripts/sync-zkteco.ts\"",
+  "dev:web": "next dev",
+  "sync": "tsx scripts/sync-zkteco.ts",
+  "start": "next start",
+  "lint": "eslint",
+  "postinstall": "prisma generate",
+  "build": "prisma generate && next build"
+},
   "dependencies": {
     "@base-ui/react": "^1.9.0",
     "@graphland/zkteco": "^0.1.0",
@@ -43,7 +45,6 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "concurrently": "^10.0.6",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "prisma": "^7.10.0",
