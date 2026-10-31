@@ -182,6 +182,8 @@ async function hasActiveApprover(
         ...(higher.length
           ? [{ designation: { approvalLevel: { in: higher } } }]
           : []),
+        // someone acting as CEO / Chairman while the post is vacant
+        { actingApprovals: { some: { level: { in: [level, ...higher] } } } },
       ],
     },
     select: { id: true },
@@ -203,7 +205,7 @@ async function explainMissingApprover(opts: {
   escalatedFromDd: boolean;
   days: number;
 }): Promise<string> {
-  const generic = `No active ${APPROVER_LABEL[opts.approverLevel]} login exists for this request. Set the approval level on the designation and make sure that employee is active.`;
+  const generic = `No active ${APPROVER_LABEL[opts.approverLevel]} login exists for this request. Set the approval level on the designation and make sure that employee is active. If the post is vacant, an acting ${APPROVER_LABEL[opts.approverLevel]} can be set on the Departments page.`;
 
   if (opts.approverLevel !== "CEO" || !opts.escalatedFromDd) {
     // e.g. a long request from staff goes straight to the CEO, by rule
@@ -266,7 +268,7 @@ async function explainMissingApprover(opts: {
         .map((d) => `${d.name} (${d.department.name})`)
         .join(", ")}.`
     : "";
-  return `${lead}: ${reason}.${elsewhere} It could not be sent to the CEO either, because no active CEO or Chairman login exists.`;
+  return `${lead}: ${reason}.${elsewhere} It could not be sent to the CEO either, because no active CEO, Chairman or acting CEO login exists (set an acting CEO on the Departments page).`;
 }
 
 type RoutePlan = {
@@ -306,7 +308,9 @@ async function planRoute(
         OR: [
           { departmentId: employee.departmentId },
           {
-            additionalCharges: { some: { departmentId: employee.departmentId } },
+            additionalCharges: {
+              some: { departmentId: employee.departmentId },
+            },
           },
         ],
       },
@@ -468,7 +472,9 @@ export async function rerouteUnroutedRequests() {
       const days = await countWorkingDays(request.startDate, request.endDate);
       const plan = await planRoute(request.employee, days);
       if (plan === "ADMIN_RECORDS") {
-        failed.push(`${request.id}: Chairman's leave must be recorded by an Admin`);
+        failed.push(
+          `${request.id}: Chairman's leave must be recorded by an Admin`,
+        );
         continue;
       }
       await prisma.leaveRequest.update({
@@ -482,7 +488,9 @@ export async function rerouteUnroutedRequests() {
       });
       routed++;
     } catch (e) {
-      failed.push(`${request.id}: ${e instanceof ServiceError ? e.message : "error"}`);
+      failed.push(
+        `${request.id}: ${e instanceof ServiceError ? e.message : "error"}`,
+      );
     }
   }
   return { routed, failed };
@@ -627,9 +635,7 @@ export async function listPendingForApprover(user: AuthUser) {
               },
             }
           : { approverLevel: me.level },
-        ...(lowerLevels.length
-          ? [{ approverLevel: { in: lowerLevels } }]
-          : []),
+        ...(lowerLevels.length ? [{ approverLevel: { in: lowerLevels } }] : []),
       ],
     },
     orderBy: { startDate: "asc" },

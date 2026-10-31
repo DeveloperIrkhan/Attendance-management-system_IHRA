@@ -4,9 +4,11 @@ import { ActionState, toActionError } from "@/lib/action-state";
 import { requirePermission } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import {
+  addActingApprover,
   addDepartmentCharge,
   createDepartment,
   deleteDepartment,
+  removeActingApprover,
   removeDepartmentCharge,
   updateDepartment,
 } from "@/services/department.service";
@@ -100,6 +102,47 @@ export async function removeDepartmentChargeAction(
 
   try {
     await removeDepartmentCharge(id);
+  } catch (e) {
+    return toActionError(e);
+  }
+  revalidatePath("/departments");
+  revalidatePath("/leaves/approvals");
+  return { ok: true };
+}
+
+/** An employee (DD or above) acts as CEO or Chairman while that post is vacant. */
+export async function addActingApproverAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission(PERMISSIONS.DEPARTMENTS_MANAGE);
+  const employeeId = String(formData.get("employeeId") ?? "");
+  const level = String(formData.get("level") ?? "");
+  if (!employeeId) return { error: "Select an employee." };
+  if (level !== "CEO" && level !== "CHAIRMAN") {
+    return { error: "Choose CEO or Chairman." };
+  }
+
+  try {
+    await addActingApprover(employeeId, level);
+  } catch (e) {
+    return toActionError(e);
+  }
+  revalidatePath("/departments");
+  revalidatePath("/leaves/approvals");
+  return { ok: true };
+}
+
+export async function removeActingApproverAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission(PERMISSIONS.DEPARTMENTS_MANAGE);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Missing id." };
+
+  try {
+    await removeActingApprover(id);
   } catch (e) {
     return toActionError(e);
   }

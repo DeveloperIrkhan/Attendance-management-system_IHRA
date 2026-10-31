@@ -14,25 +14,25 @@ datasource db {
 }
 
 model Department {
-  id            String             @id @default(cuid())
-  name          String             @unique
-  description   String?
-  employees     Employee[]
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  employees   Employee[]
   // DDs of other departments who also look after this department (additional charge)
   chargeHolders DepartmentCharge[]
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 /// A DD who also holds additional charge of another department.
 /// Leave requests of that department can then be decided by this DD as well.
 model DepartmentCharge {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   employeeId   String
   departmentId String
   employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime @default(now())
 
   @@unique([employeeId, departmentId])
   @@index([departmentId])
@@ -63,14 +63,16 @@ model Employee {
   department    Department   @relation(fields: [departmentId], references: [id])
   designation   Designation? @relation(fields: [designationId], references: [id])
 
-  attendance        Attendance[]
-  importedRows      ImportedAttendanceRow[]
-  leaveRequests     LeaveRequest[]
-  shortLeaves       ShortLeave[]
+  attendance    Attendance[]
+  importedRows  ImportedAttendanceRow[]
+  leaveRequests LeaveRequest[]
+  shortLeaves   ShortLeave[]
   additionalCharges DepartmentCharge[]
-  user              User?
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
+  // acting CEO / Chairman while the post is vacant
+  actingApprovals   ActingApprover[]
+  user          User?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
 
   @@index([departmentId])
 }
@@ -117,7 +119,7 @@ model AttendanceSettings {
   latestPunch                  String   @default("22:00")
   overtimeMinMinutes           Int      @default(0)
   offDayWorkIsOvertime         Boolean  @default(false)
-  defaultWeeklyOffDays         Int[]    @default([6, 0])
+  defaultWeeklyOffDays         Int[]    @default([5, 6, 0])
   shortLeaveMaxMinutes         Int      @default(180)
   shortLeaveMonthlyLimit       Int      @default(0)
   shortLeaveExcusesLateArrival Boolean  @default(true)
@@ -257,6 +259,19 @@ model LeaveRequest {
   updatedAt DateTime @updatedAt
 
   @@index([employeeId, startDate, endDate])
+}
+
+/// An employee who acts as CEO or Chairman because the post is vacant.
+/// They get that level's approval rights and data access, besides their own designation.
+model ActingApprover {
+  id         String        @id @default(cuid())
+  employeeId String
+  level      ApprovalLevel
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+
+  @@unique([employeeId, level])
+  @@index([level])
 }
 
 enum ApprovalLevel {

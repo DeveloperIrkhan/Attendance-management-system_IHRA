@@ -172,6 +172,12 @@ erDiagram
   DateTime createdAt
   DateTime updatedAt
 }
+"ActingApprover" {
+  String id PK
+  String employeeId FK
+  ApprovalLevel level
+  DateTime createdAt
+}
 "ShortLeave" {
   String id PK
   String employeeId FK
@@ -221,6 +227,7 @@ erDiagram
 "ImportError" }o--|| "ImportBatch" : importBatch
 "LeaveRequest" }o--|| "Employee" : employee
 "LeaveRequest" }o--|| "LeaveType" : leaveType
+"ActingApprover" }o--|| "Employee" : employee
 "ShortLeave" }o--|| "Employee" : employee
 "User" }o--|| "Role" : role
 "User" |o--o| "Employee" : employee
@@ -434,6 +441,18 @@ Properties as follows:
 - `requestedById`:
 - `createdAt`:
 - `updatedAt`:
+
+### `ActingApprover`
+
+An employee who acts as CEO or Chairman because the post is vacant.
+They get that level's approval rights and data access, besides their own designation.
+
+Properties as follows:
+
+- `id`:
+- `employeeId`:
+- `level`:
+- `createdAt`:
 
 ### `ShortLeave`
 

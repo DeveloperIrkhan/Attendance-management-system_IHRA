@@ -21,6 +21,14 @@ const RANK: Record<ApprovalLevel, number> = {
   CHAIRMAN: 3,
 };
 
+/** The highest of several levels. An acting CEO who is a DD by designation counts as CEO. */
+export function highestLevel(levels: ApprovalLevel[]): ApprovalLevel {
+  return levels.reduce<ApprovalLevel>(
+    (best, l) => (RANK[l] > RANK[best] ? l : best),
+    "STAFF",
+  );
+}
+
 //the ones holding parent rights over it
 export function levelsAbove(level: ApprovalLevel): ApproverLevel[] {
   return (["DD", "CEO", "CHAIRMAN"] as const).filter(
@@ -60,6 +68,10 @@ export function resolveApprovalRoute(
 export type ApproverIdentity = {
   employeeId: string;
   departmentId: string;
+  /**
+   * The level this person decides at: their designation's level, or the higher level they
+   * act at while that post is vacant (acting CEO / Chairman).
+   */
   level: ApprovalLevel;
   /** other departments this DD also looks after (additional charge) */
   chargeDepartmentIds?: string[];

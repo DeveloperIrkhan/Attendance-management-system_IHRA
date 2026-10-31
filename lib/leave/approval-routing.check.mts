@@ -1,7 +1,7 @@
-// Run:  node --experimental-strip-types lib/leave/approval-routing.check.mts
 import assert from "node:assert/strict";
 import {
   canDecideRequest as can,
+  highestLevel,
   levelsAbove,
   resolveApprovalRoute as route,
 } from "./approval-routing.ts";
@@ -58,21 +58,36 @@ assert.equal(can(null, ddReq), false);
 // Additional charge: a DD of another department decides for departments they also look after
 assert.equal(
   can(
-    { employeeId: "x", departmentId: "d2", level: "DD", chargeDepartmentIds: ["d1"] },
+    {
+      employeeId: "x",
+      departmentId: "d2",
+      level: "DD",
+      chargeDepartmentIds: ["d1"],
+    },
     ddReq,
   ),
   true,
 );
 assert.equal(
   can(
-    { employeeId: "x", departmentId: "d2", level: "DD", chargeDepartmentIds: ["d3"] },
+    {
+      employeeId: "x",
+      departmentId: "d2",
+      level: "DD",
+      chargeDepartmentIds: ["d3"],
+    },
     ddReq,
   ),
   false,
 ); // charge of some other department does not help
 assert.equal(
   can(
-    { employeeId: "e1", departmentId: "d2", level: "DD", chargeDepartmentIds: ["d1"] },
+    {
+      employeeId: "e1",
+      departmentId: "d2",
+      level: "DD",
+      chargeDepartmentIds: ["d1"],
+    },
     ddReq,
   ),
   false,
@@ -123,4 +138,31 @@ assert.equal(
   false,
 );
 
+// Acting CEO: the effective level is the higher of designation and acting level
+assert.equal(highestLevel(["DD", "CEO"]), "CEO");
+assert.equal(highestLevel(["STAFF"]), "STAFF");
+assert.equal(highestLevel(["CEO", "DD", "STAFF"]), "CEO");
+const actingCeoReq = {
+  employeeId: "e9",
+  approverLevel: "CEO" as const,
+  approverDepartmentId: null,
+};
+// a DD acting as CEO (effective level CEO) decides CEO-level and DD-level requests, never their own
+assert.equal(
+  can({ employeeId: "x", departmentId: "d2", level: "CEO" }, actingCeoReq),
+  true,
+);
+assert.equal(
+  can({ employeeId: "x", departmentId: "d2", level: "CEO" }, ddReq),
+  true,
+);
+assert.equal(
+  can({ employeeId: "e9", departmentId: "d2", level: "CEO" }, actingCeoReq),
+  false,
+);
+// a plain DD still cannot decide CEO-level requests
+assert.equal(
+  can({ employeeId: "x", departmentId: "d2", level: "DD" }, actingCeoReq),
+  false,
+);
 console.log("approval routing: all checks passed");

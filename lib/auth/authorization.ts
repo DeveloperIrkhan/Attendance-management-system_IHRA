@@ -4,7 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { Permission } from "./permissions";
 import { NextResponse } from "next/server";
-import type { ApproverIdentity } from "@/lib/leave/approval-routing";
+import {
+  highestLevel,
+  type ApprovalLevel,
+  type ApproverIdentity,
+} from "@/lib/leave/approval-routing";
 import { resolveDataScope, type DataScope } from "./data-scope";
 
 // Loads the user fresh from the DB,
@@ -29,6 +33,7 @@ export const getCurrentUser = cache(async () => {
           departmentId: true,
           designation: { select: { approvalLevel: true } },
           additionalCharges: { select: { departmentId: true } },
+          actingApprovals: { select: { level: true } },
         },
       },
     },
@@ -60,13 +65,24 @@ export async function requirePermission(...permissions: Permission[]) {
   return user;
 }
 
+/**
+ * The level this person acts at: the level of their designation, or a higher one when they are
+ * the acting CEO / Chairman (set on the Departments page).
+ */
+function effectiveLevel(user: AuthUser): ApprovalLevel {
+  const own: ApprovalLevel =
+    user.employee?.designation?.approvalLevel ?? "STAFF";
+  const acting = user.employee?.actingApprovals.map((a) => a.level) ?? [];
+  return highestLevel([own, ...acting]);
+}
+
 /** The user's place in the leave approval chain (null if not linked to an employee). */
 export function getApproverIdentity(user: AuthUser): ApproverIdentity | null {
   if (!user.employee) return null;
   return {
     employeeId: user.employee.id,
     departmentId: user.employee.departmentId,
-    level: user.employee.designation?.approvalLevel ?? "STAFF",
+    level: effectiveLevel(user),
     chargeDepartmentIds: user.employee.additionalCharges.map(
       (c) => c.departmentId,
     ),
@@ -80,7 +96,7 @@ export function getApproverIdentity(user: AuthUser): ApproverIdentity | null {
 export function getDataScope(user: AuthUser): DataScope {
   return resolveDataScope({
     permissions: user.role.permissions,
-    level: user.employee?.designation?.approvalLevel ?? "STAFF",
+    level: effectiveLevel(user),
     employeeId: user.employee?.id ?? null,
     departmentId: user.employee?.departmentId ?? null,
     chargeDepartmentIds:

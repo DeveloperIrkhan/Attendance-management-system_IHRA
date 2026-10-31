@@ -149,3 +149,95 @@ export async function removeDepartmentCharge(id: string) {
   if (!found) throw new ServiceError("This additional charge no longer exists.");
   await prisma.departmentCharge.delete({ where: { id } });
 }
+
+// ---- Acting CEO / Chairman (while the post is vacant) ----
+
+export type ActingLevel = "CEO" | "CHAIRMAN";
+const ACTING_RANK = { STAFF: 0, DD: 1, CEO: 2, CHAIRMAN: 3 } as const;
+
+export function listActingApprovers() {
+  return prisma.actingApprover.findMany({
+    orderBy: [{ level: "desc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      level: true,
+      employee: {
+        select: {
+          name: true,
+          isActive: true,
+          department: { select: { name: true } },
+          designation: { select: { title: true } },
+          user: { select: { isActive: true } },
+        },
+      },
+    },
+  });
+}
+
+/** Active employees at DD level or above: the ones who can step in for a vacant CEO or Chairman. */
+export function listActingCandidates() {
+  return prisma.employee.findMany({
+    where: {
+      isActive: true,
+      designation: { approvalLevel: { in: ["DD", "CEO"] } },
+    },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      department: { select: { name: true } },
+      designation: { select: { title: true, approvalLevel: true } },
+    },
+  });
+}
+
+export async function addActingApprover(employeeId: string, level: ActingLevel) {
+  if (level !== "CEO" && level !== "CHAIRMAN") {
+    throw new ServiceError("Choose CEO or Chairman.");
+  }
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      name: true,
+      isActive: true,
+      designation: { select: { approvalLevel: true } },
+      user: { select: { isActive: true } },
+    },
+  });
+  if (!employee || !employee.isActive) {
+    throw new ServiceError("Employee not found or inactive.");
+  }
+  if (!employee.user?.isActive) {
+    throw new ServiceError(
+      `${employee.name} has no active login, so they could not approve anything. Create or activate their login first.`,
+    );
+  }
+  const own = employee.designation?.approvalLevel ?? "STAFF";
+  if (ACTING_RANK[own] < ACTING_RANK.DD) {
+    throw new ServiceError(
+      `${employee.name} is not at DD level. Only a DD or higher can act as ${level === "CEO" ? "CEO" : "Chairman"}.`,
+    );
+  }
+  if (ACTING_RANK[own] >= ACTING_RANK[level]) {
+    throw new ServiceError(
+      `${employee.name} already holds ${own === level ? "that" : "a higher"} level by designation.`,
+    );
+  }
+  const exists = await prisma.actingApprover.findUnique({
+    where: { employeeId_level: { employeeId, level } },
+    select: { id: true },
+  });
+  if (exists) {
+    throw new ServiceError(`${employee.name} is already acting as ${level === "CEO" ? "CEO" : "Chairman"}.`);
+  }
+  return prisma.actingApprover.create({ data: { employeeId, level } });
+}
+
+export async function removeActingApprover(id: string) {
+  const found = await prisma.actingApprover.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+  if (!found) throw new ServiceError("This acting role no longer exists.");
+  await prisma.actingApprover.delete({ where: { id } });
+}

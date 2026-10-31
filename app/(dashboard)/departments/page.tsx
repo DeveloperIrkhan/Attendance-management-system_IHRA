@@ -1,25 +1,32 @@
 import SimpleForm from "@/components/SimpleForm";
-import { requirePermission } from "@/lib/auth/authorization";
 import {
+  listActingApprovers,
+  listActingCandidates,
   listDdEmployees,
   listDepartmentsWithApprovers,
 } from "@/services/department.service";
 import {
+  addActingApproverAction,
   addDepartmentChargeAction,
   createDepartmentActionAsync,
   deleteDepartmentAction,
+  removeActingApproverAction,
   removeDepartmentChargeAction,
   updateDepartmentAction,
 } from "./actions";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import RowActionForm from "@/components/RowActionForm";
+import { requirePermission } from "@/lib/auth/authorization";
 
 export default async function DepartmentsPage() {
   await requirePermission(PERMISSIONS.DEPARTMENTS_MANAGE);
-  const [departments, ddEmployees] = await Promise.all([
-    listDepartmentsWithApprovers(),
-    listDdEmployees(),
-  ]);
+  const [departments, ddEmployees, actingApprovers, actingCandidates] =
+    await Promise.all([
+      listDepartmentsWithApprovers(),
+      listDdEmployees(),
+      listActingApprovers(),
+      listActingCandidates(),
+    ]);
 
   return (
     <div className="w-full">
@@ -43,6 +50,88 @@ export default async function DepartmentsPage() {
             </div>
           </section>
         </div>
+
+        <section className="rounded-md bg-white p-4 shadow-lg">
+          <h2 className="font-medium">Acting CEO / Chairman</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Use this while the CEO or Chairman post is vacant. A DD (or the
+            acting CEO for Chairman) who acts at that level approves the
+            requests routed to it, and sees the whole organization&apos;s
+            attendance. Remove the role when the post is filled.
+          </p>
+          <div className="mt-3 grid gap-6 md:grid-cols-2">
+            <div>
+              <h3 className="mb-2 text-sm font-medium">Currently acting</h3>
+              {actingApprovers.length === 0 ? (
+                <p className="text-sm text-zinc-500">Nobody is acting.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {actingApprovers.map((a) => (
+                    <li
+                      key={a.id}
+                      className="flex flex-wrap items-center gap-x-3 text-sm"
+                    >
+                      <span>
+                        <span className="font-medium">
+                          {a.level === "CEO" ? "Acting CEO" : "Acting Chairman"}
+                        </span>
+                        : {a.employee.name}{" "}
+                        <span className="text-xs text-zinc-500">
+                          ({a.employee.designation?.title ?? "No designation"},{" "}
+                          {a.employee.department.name})
+                        </span>
+                        {(!a.employee.isActive ||
+                          !a.employee.user?.isActive) && (
+                          <span className="ml-2 text-xs text-amber-700">
+                            inactive or no login
+                          </span>
+                        )}
+                      </span>
+                      <RowActionForm
+                        action={removeActingApproverAction}
+                        id={a.id}
+                        label="Remove"
+                        danger
+                        confirmMessage={`Remove ${a.employee.name} as acting ${a.level === "CEO" ? "CEO" : "Chairman"}?`}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="max-w-sm">
+              <h3 className="mb-2 text-sm font-medium">Assign</h3>
+              <SimpleForm
+                action={addActingApproverAction}
+                resetOnSuccess
+                submitLabel="Assign"
+                fields={[
+                  {
+                    name: "level",
+                    label: "Acting as",
+                    required: true,
+                    options: [
+                      { value: "CEO", label: "CEO" },
+                      { value: "CHAIRMAN", label: "Chairman" },
+                    ],
+                  },
+                  {
+                    name: "employeeId",
+                    label: "Employee",
+                    required: true,
+                    options: [
+                      { value: "", label: "Select an employee" },
+                      ...actingCandidates.map((e) => ({
+                        value: e.id,
+                        label: `${e.name} (${e.designation?.title ?? "No designation"}, ${e.department.name})`,
+                      })),
+                    ],
+                  },
+                ]}
+              />
+            </div>
+          </div>
+        </section>
 
         <div className="overflow-x-auto rounded-md shadow-lg p-3 flex-1 bg-white">
           <h2 className="mb-3 font-medium">Departments List</h2>
@@ -70,7 +159,9 @@ export default async function DepartmentsPage() {
                   <td className="p-3 text-zinc-600">{d.description ?? "-"}</td>
                   <td className="p-3">{d._count.employees}</td>
                   <td className="p-3">
-                    <p className="text-xs text-zinc-500">DD of this department</p>
+                    <p className="text-xs text-zinc-500">
+                      DD of this department
+                    </p>
                     <p>
                       {d.employees.length > 0
                         ? d.employees.map((e) => e.name).join(", ")
