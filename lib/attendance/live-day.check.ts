@@ -45,3 +45,42 @@ assert.equal(two.result.status, "PRESENT"); assert.equal(two.note, null);
 const off = evaluateLiveDay({ dayType: "WEEKEND", punches: [m(9)], isToday: true, nowMinutes: m(10) }, cfg);
 assert.equal(off.note, null);
 console.log("live-day + office-clock: all checks passed");
+// ---- Leaving early (thresholds are set on /attendance/settings) ----
+const base = { shiftStart: "08:00", shiftEnd: "16:00", graceMinutes: 15, halfDayAfterMinutes: 180, duplicatePunchMinutes: 15, earliestPunch: "07:00", latestPunch: "22:00", overtimeMinMinutes: 0, offDayWorkIsOvertime: false };
+const cfgE = toRuleConfig({ ...base, earlyLeaveHalfDayBefore: "13:00", earlyLeaveShortLeaveBefore: "15:00" });
+const day = (punches: number[]) => evaluateDay({ dayType: "WORKING", punches }, cfgE);
+
+// the reported case: in 08:14 (inside grace), out 09:01 -> half day, not present
+assert.equal(evaluateDay({ dayType: "WORKING", punches: [m(8, 14), m(9, 1)] }, cfg).status, "PRESENT"); // rule off
+const abid = day([m(8, 14), m(9, 1)]);
+assert.equal(abid.status, "HALF_DAY"); assert.equal(abid.earlyLeaveStatus, "HALF_DAY");
+assert.equal(abid.lateMinutes, 0); assert.match(abid.remarks ?? "", /half day rule/);
+// out before 15:00 but after 13:00 -> short leave; at/after 15:00 -> present
+assert.equal(day([m(8, 5), m(14, 30)]).status, "SHORT_LEAVE");
+assert.equal(day([m(8, 5), m(15, 0)]).status, "PRESENT");
+assert.equal(day([m(8, 5), m(12, 59)]).status, "HALF_DAY");
+assert.equal(day([m(8, 5), m(13, 0)]).status, "SHORT_LEAVE");
+// late + early never counts twice: the worse of the two wins
+assert.equal(day([m(9, 30), m(12, 0)]).status, "HALF_DAY");      // short (late) + half (early) -> half
+assert.equal(day([m(11, 30), m(15, 30)]).status, "HALF_DAY");    // half (late), early rule is only short -> stays half
+assert.equal(day([m(9, 30), m(16, 0)]).status, "SHORT_LEAVE");   // late only
+// only one threshold set
+const onlyHalf = toRuleConfig({ ...base, earlyLeaveHalfDayBefore: "13:00" });
+assert.equal(evaluateDay({ dayType: "WORKING", punches: [m(8, 5), m(14, 0)] }, onlyHalf).status, "PRESENT");
+// empty string means off
+const emptyOff = toRuleConfig({ ...base, earlyLeaveHalfDayBefore: "", earlyLeaveShortLeaveBefore: null });
+assert.equal(evaluateDay({ dayType: "WORKING", punches: [m(8, 5), m(9, 0)] }, emptyOff).status, "PRESENT");
+// days off are untouched
+assert.equal(evaluateDay({ dayType: "WEEKEND", punches: [m(9, 0), m(9, 30)] }, cfgE).status, "WEEKEND");
+// live: while today's shift runs, the second punch is not treated as leaving
+const liveAbid = evaluateLiveDay({ dayType: "WORKING", punches: [m(8, 14), m(9, 1)], isToday: true, nowMinutes: m(9, 5) }, cfgE);
+assert.equal(liveAbid.result.status, "PRESENT"); assert.match(liveAbid.note ?? "", /after the shift ends/);
+const liveAfter = evaluateLiveDay({ dayType: "WORKING", punches: [m(8, 14), m(9, 1)], isToday: true, nowMinutes: m(16, 30) }, cfgE);
+assert.equal(liveAfter.result.status, "HALF_DAY");
+const livePast = evaluateLiveDay({ dayType: "WORKING", punches: [m(8, 14), m(9, 1)], isToday: false, nowMinutes: m(9, 5) }, cfgE);
+assert.equal(livePast.result.status, "HALF_DAY");
+// live lone check-in is still judged by arrival only
+const liveOne = evaluateLiveDay({ dayType: "WORKING", punches: [m(8, 5)], isToday: true, nowMinutes: m(11) }, cfgE);
+assert.equal(liveOne.result.status, "PRESENT"); assert.equal(liveOne.result.checkOut, null);
+console.log("early-leave rule: all checks passed");
+

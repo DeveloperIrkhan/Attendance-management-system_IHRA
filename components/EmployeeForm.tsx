@@ -58,6 +58,8 @@ export default function EmployeeForm({
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    // fd.set("employeeCode", fd.get("biometricId")?.toString().trim() ?? "");
+    //this will automatically set the employeeCode to biometicId
     startTransition(() => formAction(fd));
   }
   if (pending) return <Spinner />;
@@ -103,7 +105,18 @@ export default function EmployeeForm({
           <input
             name="employeeCode"
             required
+            placeholder="Enter Employee Code  eg. 00"
             defaultValue={initial.employeeCode}
+            onChange={(e) => {
+              const form = e.currentTarget.form;
+              if (form) {
+                const biometricInput = form.elements.namedItem(
+                  "biometricId",
+                ) as HTMLInputElement;
+
+                biometricInput.value = e.currentTarget.value;
+              }
+            }}
             className={input}
           />
         </div>
@@ -112,6 +125,7 @@ export default function EmployeeForm({
           <input
             name="biometricId"
             required
+            placeholder="Enter Biometric Id  eg. 00"
             defaultValue={initial.biometricId}
             className={input}
           />
@@ -120,6 +134,7 @@ export default function EmployeeForm({
           <label className="text-sm font-medium">Full name *</label>
           <input
             name="name"
+            placeholder="Enter Name  eg. Irfan Shah"
             required
             defaultValue={initial.name}
             className={input}
@@ -129,6 +144,7 @@ export default function EmployeeForm({
           <label className="text-sm font-medium">Email *</label>
           <input
             name="email"
+            placeholder="dev.irfan.pk@gmail.com"
             type="email"
             required
             defaultValue={initial.email}
@@ -139,6 +155,7 @@ export default function EmployeeForm({
           <label className="text-sm font-medium">Phone</label>
           <input
             name="phoneNumber"
+            placeholder="Enter Phone No."
             defaultValue={initial.phoneNumber}
             className={input}
           />

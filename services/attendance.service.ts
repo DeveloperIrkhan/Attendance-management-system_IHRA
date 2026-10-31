@@ -8,6 +8,7 @@ import {
   formatMinutes,
   toMinutes,
   toRuleConfig,
+  withoutEarlyLeaveRule,
 } from "@/lib/attendance/attendance-rules";
 import { monthRange, toIsoDate } from "@/lib/attendance/dates";
 import { employeeWhereFor, type DataScope } from "@/lib/auth/data-scope";
@@ -123,6 +124,22 @@ export async function processBatch(
         minutesOfDay(s.endTime) >= arrival,
     );
 
+  // An approved short leave that runs from before the person left until the end of the shift.
+  const coveringDepartureShortLeave = (
+    employeeId: string,
+    date: Date,
+    checkOut: number,
+  ) =>
+    shortLeaves.find(
+      (s) =>
+        s.employeeId === employeeId &&
+        toIsoDate(s.date) === toIsoDate(date) &&
+        s.startTime !== null &&
+        s.endTime !== null &&
+        minutesOfDay(s.startTime) <= checkOut + cfg.graceMinutes &&
+        minutesOfDay(s.endTime) >= cfg.shiftEnd,
+    );
+
   const summary: ProcessSummary = {
     processed: 0,
     skippedManual: 0,
@@ -170,7 +187,32 @@ export async function processBatch(
       status = "ON_LEAVE";
       remarks = "Approved leave";
     } else if (
+      settings.shortLeaveExcusesLateArrival &&
+      result.earlyLeaveStatus !== null &&
+      result.checkOut !== null &&
+      coveringDepartureShortLeave(employeeId, date, result.checkOut)
+    ) {
+      // Approved short leave covers leaving early: judge the day by arrival alone
+      const byArrival = evaluateDay(
+        {
+          dayType: dayTypeOf(date),
+          punches: collectPunches(
+            row.sourcePunches,
+            row.sourceClockIn,
+            row.sourceClockOut,
+          ),
+          hintIn: timeToMinutes(row.sourceClockIn),
+          hintOut: timeToMinutes(row.sourceClockOut),
+        },
+        withoutEarlyLeaveRule(cfg),
+      );
+      status = byArrival.status;
+      remarks = [remarks, `Early departure covered by approved short leave`]
+        .filter(Boolean)
+        .join("; ");
+    } else if (
       status === "SHORT_LEAVE" &&
+      result.earlyLeaveStatus === null &&
       settings.shortLeaveExcusesLateArrival &&
       result.checkIn !== null
     ) {

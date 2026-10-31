@@ -35,6 +35,8 @@ export default async function AttendanceSettingsPage() {
             shortLeaveMaxMinutes: s.shortLeaveMaxMinutes,
             shortLeaveMonthlyLimit: s.shortLeaveMonthlyLimit,
             shortLeaveExcusesLateArrival: s.shortLeaveExcusesLateArrival,
+            earlyLeaveHalfDayBefore: s.earlyLeaveHalfDayBefore,
+            earlyLeaveShortLeaveBefore: s.earlyLeaveShortLeaveBefore,
           }}
         />
       </div>

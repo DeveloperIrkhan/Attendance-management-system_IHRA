@@ -78,6 +78,8 @@ erDiagram
   Int shortLeaveMaxMinutes
   Int shortLeaveMonthlyLimit
   Boolean shortLeaveExcusesLateArrival
+  String earlyLeaveHalfDayBefore "nullable"
+  String earlyLeaveShortLeaveBefore "nullable"
   String updatedById "nullable"
   DateTime updatedAt
 }
@@ -315,6 +317,8 @@ Properties as follows:
 - `shortLeaveMaxMinutes`:
 - `shortLeaveMonthlyLimit`:
 - `shortLeaveExcusesLateArrival`:
+- `earlyLeaveHalfDayBefore`:
+- `earlyLeaveShortLeaveBefore`:
 - `updatedById`:
 - `updatedAt`:
 

@@ -4,6 +4,11 @@ import { toMinutes } from "@/lib/attendance/attendance-rules";
 const time = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use 24-hour time such as 08:00");
+// A time that may be left empty: empty means "rule off" and is stored as null.
+const optionalTime = z.preprocess(
+  (v) => (v === "" || v === undefined ? null : v),
+  time.nullable(),
+);
 const minutes = (min: number, max: number, label: string) =>
   z.coerce
     .number()
@@ -27,6 +32,8 @@ export const settingsSchema = z
     shortLeaveMaxMinutes: minutes(15, 480, "Maximum short leave"),
     shortLeaveMonthlyLimit: minutes(0, 31, "Monthly short leave limit"),
     shortLeaveExcusesLateArrival: z.boolean(),
+    earlyLeaveHalfDayBefore: optionalTime,
+    earlyLeaveShortLeaveBefore: optionalTime,
   })
   .superRefine((v, ctx) => {
     const start = toMinutes(v.shiftStart);
@@ -50,6 +57,38 @@ export const settingsSchema = z
         code: "custom",
         path: ["latestPunch"],
         message: "Latest punch must not be before shift end",
+      });
+    }
+    const halfBefore = v.earlyLeaveHalfDayBefore
+      ? toMinutes(v.earlyLeaveHalfDayBefore)
+      : null;
+    const shortBefore = v.earlyLeaveShortLeaveBefore
+      ? toMinutes(v.earlyLeaveShortLeaveBefore)
+      : null;
+    if (halfBefore !== null && halfBefore <= start) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["earlyLeaveHalfDayBefore"],
+        message: "Half-day leaving time must be after shift start",
+      });
+    }
+    if (shortBefore !== null && shortBefore > end) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["earlyLeaveShortLeaveBefore"],
+        message: "Short-leave leaving time must not be after shift end",
+      });
+    }
+    if (
+      halfBefore !== null &&
+      shortBefore !== null &&
+      halfBefore >= shortBefore
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["earlyLeaveShortLeaveBefore"],
+        message:
+          "Short-leave leaving time must be later than the half-day leaving time",
       });
     }
     if (v.halfDayAfterMinutes <= v.graceMinutes) {
@@ -79,6 +118,8 @@ export function settingsFromForm(fd: FormData) {
     shortLeaveMonthlyLimit: fd.get("shortLeaveMonthlyLimit"),
     shortLeaveExcusesLateArrival:
       fd.get("shortLeaveExcusesLateArrival") === "on",
+    earlyLeaveHalfDayBefore: fd.get("earlyLeaveHalfDayBefore"),
+    earlyLeaveShortLeaveBefore: fd.get("earlyLeaveShortLeaveBefore"),
   };
 }
 

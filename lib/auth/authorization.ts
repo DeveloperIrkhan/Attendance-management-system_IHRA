@@ -47,7 +47,8 @@ export function hasPermission(user: AuthUser, ...permissions: Permission[]) {
 /** For pages / server components. */
 export async function requireUser() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  // "?expired" lets the proxy clear a stale cookie, so this cannot loop with the /login redirect
+  if (!user) redirect("/login?expired=1");
   if (user.mustChangePassword) redirect("/change-password");
   return user;
 }

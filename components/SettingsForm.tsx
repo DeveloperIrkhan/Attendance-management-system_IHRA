@@ -17,6 +17,8 @@ export type SettingsValues = {
   shortLeaveMaxMinutes: number;
   shortLeaveMonthlyLimit: number;
   shortLeaveExcusesLateArrival: boolean;
+  earlyLeaveHalfDayBefore: string | null;
+  earlyLeaveShortLeaveBefore: string | null;
 };
 
 const DAYS: { value: number; label: string }[] = [
@@ -158,9 +160,42 @@ export default function SettingsForm({
             name="shortLeaveExcusesLateArrival"
             defaultChecked={values.shortLeaveExcusesLateArrival}
           />
-          An approved short leave excuses a late arrival (the day counts as
-          Present instead of Short leave)
+          An approved short leave excuses a late arrival or an early departure
+          (the day counts as Present instead of Short leave)
         </label>
+      </section>
+      <section className="space-y-4">
+        <p className="text-sm font-medium">Leaving early</p>
+        <p className="text-xs text-zinc-500">
+          Judged by the check-out time. The day gets the worse of this result
+          and the arrival result, so being late and leaving early never counts
+          twice. For today it is applied only after the shift has ended. Leave
+          a field empty to turn that rule off.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Half day if check-out is before"
+            hint="For example 13:00. Leaving earlier than this is a half day."
+          >
+            <input
+              type="time"
+              name="earlyLeaveHalfDayBefore"
+              defaultValue={values.earlyLeaveHalfDayBefore ?? ""}
+              className={input}
+            />
+          </Field>
+          <Field
+            label="Short leave if check-out is before"
+            hint="Optional, for example 15:00. Must be later than the half-day time."
+          >
+            <input
+              type="time"
+              name="earlyLeaveShortLeaveBefore"
+              defaultValue={values.earlyLeaveShortLeaveBefore ?? ""}
+              className={input}
+            />
+          </Field>
+        </div>
       </section>
       <section className="grid gap-4 sm:grid-cols-2">
         <Field

@@ -15,6 +15,10 @@ export type RuleSettingsLike = {
   latestPunch: string; // "HH:mm", punches after this are ignored
   overtimeMinMinutes: number;
   offDayWorkIsOvertime: boolean;
+  /** "HH:mm": a check-out before this is a half day. Empty or missing = rule off. */
+  earlyLeaveHalfDayBefore?: string | null;
+  /** "HH:mm": a check-out before this is a short leave. Empty or missing = rule off. */
+  earlyLeaveShortLeaveBefore?: string | null;
 };
 
 export type RuleConfig = {
@@ -27,6 +31,9 @@ export type RuleConfig = {
   latestPunch: number;
   overtimeMinMinutes: number;
   offDayWorkIsOvertime: boolean;
+  /** minutes since midnight, or null when the rule is off */
+  earlyLeaveHalfDayBefore: number | null;
+  earlyLeaveShortLeaveBefore: number | null;
 };
 
 export type DayInput = {
@@ -44,6 +51,8 @@ export type DayResult = {
   lateMinutes: number;
   earlyLeaveMinutes: number;
   overtimeMinutes: number;
+  /** set when the check-out time (leaving early) lowered or matched the status */
+  earlyLeaveStatus: "SHORT_LEAVE" | "HALF_DAY" | null;
   accepted: number[];
   ignored: number[];
   remarks: string | null;
@@ -71,8 +80,29 @@ export function toRuleConfig(s: RuleSettingsLike): RuleConfig {
     latestPunch: toMinutes(s.latestPunch),
     overtimeMinMinutes: s.overtimeMinMinutes,
     offDayWorkIsOvertime: s.offDayWorkIsOvertime,
+    earlyLeaveHalfDayBefore: s.earlyLeaveHalfDayBefore
+      ? toMinutes(s.earlyLeaveHalfDayBefore)
+      : null,
+    earlyLeaveShortLeaveBefore: s.earlyLeaveShortLeaveBefore
+      ? toMinutes(s.earlyLeaveShortLeaveBefore)
+      : null,
   };
 }
+
+/** The same rules with the leaving-early rule switched off. */
+export function withoutEarlyLeaveRule(cfg: RuleConfig): RuleConfig {
+  return {
+    ...cfg,
+    earlyLeaveHalfDayBefore: null,
+    earlyLeaveShortLeaveBefore: null,
+  };
+}
+
+const SEVERITY: Partial<Record<AttendanceStatusName, number>> = {
+  PRESENT: 0,
+  SHORT_LEAVE: 1,
+  HALF_DAY: 2,
+};
 
 //Builds the punch list for a day from the sheet's punch text and in/out columns 
 export function collectPunches(
@@ -132,6 +162,7 @@ export function evaluateDay(input: DayInput, cfg: RuleConfig): DayResult {
     lateMinutes: 0,
     earlyLeaveMinutes: 0,
     overtimeMinutes: 0,
+    earlyLeaveStatus: null,
     accepted,
     ignored,
     remarks: null,
@@ -199,6 +230,27 @@ export function evaluateDay(input: DayInput, cfg: RuleConfig): DayResult {
   const earlyLeaveMinutes = Math.max(0, cfg.shiftEnd - last);
   if (earlyLeaveMinutes > 0) remarks.push(`Left ${earlyLeaveMinutes} min early`);
 
+  // Leaving early: the day gets the worse of the arrival result and the departure result,
+  // so being late and leaving early never counts twice.
+  let earlyLeaveStatus: DayResult["earlyLeaveStatus"] = null;
+  let earlyRuleText = "";
+  if (cfg.earlyLeaveHalfDayBefore !== null && last < cfg.earlyLeaveHalfDayBefore) {
+    earlyLeaveStatus = "HALF_DAY";
+    earlyRuleText = `half day rule (before ${formatMinutes(cfg.earlyLeaveHalfDayBefore)})`;
+  } else if (
+    cfg.earlyLeaveShortLeaveBefore !== null &&
+    last < cfg.earlyLeaveShortLeaveBefore
+  ) {
+    earlyLeaveStatus = "SHORT_LEAVE";
+    earlyRuleText = `short leave rule (before ${formatMinutes(cfg.earlyLeaveShortLeaveBefore)})`;
+  }
+  if (earlyLeaveStatus) {
+    remarks.push(`Checked out at ${formatMinutes(last)}: ${earlyRuleText}`);
+    if ((SEVERITY[earlyLeaveStatus] ?? 0) > (SEVERITY[status] ?? 0)) {
+      status = earlyLeaveStatus;
+    }
+  }
+
   const rawOvertime = Math.max(0, last - cfg.shiftEnd);
   const overtimeMinutes = rawOvertime >= cfg.overtimeMinMinutes ? rawOvertime : 0;
 
@@ -210,5 +262,6 @@ export function evaluateDay(input: DayInput, cfg: RuleConfig): DayResult {
     lateMinutes,
     earlyLeaveMinutes,
     overtimeMinutes,
+    earlyLeaveStatus,
   });
 }

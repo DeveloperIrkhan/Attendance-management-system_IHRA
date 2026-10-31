@@ -52,8 +52,11 @@ export default async function CalendarPage({
   const cal = await getMonthCalendar(year, month);
   const prev = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };
   const next = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 };
-  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
-
+  // const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const today = new Date();
+  const monthStart = `${today.getFullYear()}-${String(
+    today.getMonth() + 1,
+  ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   return (
     <div className="w-full flex justify-center items-center">
       <div className="max-w-3xl space-y-6">
