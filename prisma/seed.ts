@@ -42,6 +42,13 @@ async function main() {
   // generating a proper password hash.
   const passwordHash = await hashPassword(password);
 
+  // The password in .env is only written when the admin is first created, or when you
+  // explicitly ask for a reset with SEED_RESET_ADMIN_PASSWORD="true".
+  // Set SEED_ADMIN_MUST_CHANGE_PASSWORD="false" to go straight to the dashboard on first login.
+  const resetPassword = process.env.SEED_RESET_ADMIN_PASSWORD === "true";
+  const mustChangePassword =
+    process.env.SEED_ADMIN_MUST_CHANGE_PASSWORD !== "false";
+
   const existing = await prisma.user.findUnique({
     where: { email },
   });
@@ -55,13 +62,15 @@ async function main() {
         isActive: true,
         failedLoginAttempts: 0,
         lockedUntil: null,
-        ...(process.env.SEED_RESET_ADMIN_PASSWORD === "true"
-          ? { passwordHash, mustChangePassword: true }
-          : {}),
+        ...(resetPassword ? { passwordHash, mustChangePassword } : {}),
       },
     });
 
-    console.log(`Updated admin ${email} and reset login lock.`);
+    console.log(
+      resetPassword
+        ? `Updated admin ${email}: password reset from .env, login lock cleared.`
+        : `Updated admin ${email}: login lock cleared. Password NOT changed (set SEED_RESET_ADMIN_PASSWORD="true" to reset it).`,
+    );
   } else {
     await prisma.user.create({
       data: {
@@ -70,7 +79,7 @@ async function main() {
         passwordHash,
         roleId: adminRole.id,
         isActive: true,
-        mustChangePassword: true,
+        mustChangePassword,
       },
     });
 
@@ -86,3 +95,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+ 

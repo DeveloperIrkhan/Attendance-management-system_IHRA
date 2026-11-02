@@ -153,6 +153,7 @@ export default async function DailyAttendancePage({
         <table className="w-full text-sm">
           <thead className="bg-green-800 text-white text-left">
             <tr>
+              <th className="p-3">Serial No</th>
               <th className="p-3">Biometric Id</th>
               <th className="p-3">Name</th>
               <th className="p-3">Department</th>
@@ -166,8 +167,9 @@ export default async function DailyAttendancePage({
             </tr>
           </thead>
           <tbody>
-            {records.map((r) => (
+            {records.map((r, index) => (
               <tr key={r.id} className="border-t align-top">
+                <td className="p-3">{index + 1}</td>
                 <td className="p-3">{r.employee.biometricId}</td>
                 <td className="p-3 font-medium">{r.employee.name}</td>
                 <td className="p-3">{r.employee.department.name}</td>

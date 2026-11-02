@@ -25,6 +25,7 @@ import type {
 } from "@/validations/leave.validation";
 import { reprocessEmployeeRange } from "./attendance.service";
 import { getMonthCalendar, makeDayTypeResolver } from "./settings.service";
+import { syncLeaveToAttendance } from "./leave-attendance.service";
 
 const yearRange = (year: number) => ({
   start: new Date(Date.UTC(year, 0, 1)),
@@ -144,6 +145,19 @@ async function assertNoOverlap(
     throw new ServiceError(
       `This employee already has a ${clash.status.toLowerCase()} leave from ${toIsoDate(clash.startDate)} to ${toIsoDate(clash.endDate)}.`,
     );
+  }
+}
+
+/**
+ * Puts the leave's dates into attendance ("On leave"), or takes them out again when it was
+ * cancelled. A failure here must not undo the decision that was already saved: the sync
+ * repeats this for recent days.
+ */
+async function showLeaveInAttendance(employeeId: string, from: Date, to: Date) {
+  try {
+    await syncLeaveToAttendance(employeeId, from, to);
+  } catch (e) {
+    console.error("Could not update attendance for the leave:", e);
   }
 }
 
@@ -308,9 +322,7 @@ async function planRoute(
         OR: [
           { departmentId: employee.departmentId },
           {
-            additionalCharges: {
-              some: { departmentId: employee.departmentId },
-            },
+            additionalCharges: { some: { departmentId: employee.departmentId } },
           },
         ],
       },
@@ -427,6 +439,7 @@ export async function createLeaveRequest(
       },
     });
     await reprocessEmployeeRange(employee.id, start, end);
+    await showLeaveInAttendance(employee.id, start, end);
     return recorded;
   }
 
@@ -472,9 +485,7 @@ export async function rerouteUnroutedRequests() {
       const days = await countWorkingDays(request.startDate, request.endDate);
       const plan = await planRoute(request.employee, days);
       if (plan === "ADMIN_RECORDS") {
-        failed.push(
-          `${request.id}: Chairman's leave must be recorded by an Admin`,
-        );
+        failed.push(`${request.id}: Chairman's leave must be recorded by an Admin`);
         continue;
       }
       await prisma.leaveRequest.update({
@@ -488,9 +499,7 @@ export async function rerouteUnroutedRequests() {
       });
       routed++;
     } catch (e) {
-      failed.push(
-        `${request.id}: ${e instanceof ServiceError ? e.message : "error"}`,
-      );
+      failed.push(`${request.id}: ${e instanceof ServiceError ? e.message : "error"}`);
     }
   }
   return { routed, failed };
@@ -595,6 +604,13 @@ export async function decideLeaveRequest(
       request.startDate,
       request.endDate,
     );
+    // device-synced days too: approved leave shows as "On leave" on those dates, and a
+    // cancelled leave goes back to Absent
+    await showLeaveInAttendance(
+      request.employeeId,
+      request.startDate,
+      request.endDate,
+    );
   }
   return updated;
 }
@@ -635,7 +651,9 @@ export async function listPendingForApprover(user: AuthUser) {
               },
             }
           : { approverLevel: me.level },
-        ...(lowerLevels.length ? [{ approverLevel: { in: lowerLevels } }] : []),
+        ...(lowerLevels.length
+          ? [{ approverLevel: { in: lowerLevels } }]
+          : []),
       ],
     },
     orderBy: { startDate: "asc" },

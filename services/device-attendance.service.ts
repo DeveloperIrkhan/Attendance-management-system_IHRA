@@ -9,6 +9,7 @@ import { normalizeBiometricId } from "../lib/attendance/biometric-id";
 import { evaluateLiveDay } from "../lib/attendance/live-day";
 import { officeNow } from "../lib/attendance/office-clock";
 import type { AttendanceStatus } from "../lib/generated/prisma/client";
+import { syncApprovedLeavesToAttendance } from "./leave-attendance.service";
 
 const DAY_MS = 86_400_000;
 const SOURCE = "Source: uFace800";
@@ -240,6 +241,10 @@ export async function processDevicePunches(
     filled += result.count;
   }
 
+  // ---- 3. approved leave: also turns Absent / Missing punch rows into "On leave" and starts a
+  //         leave that was approved in advance once its first day arrives
+  const leaveSync = await syncApprovedLeavesToAttendance(options.sinceDays ?? 2);
+
   const summary = {
     rawPunches: punches.length,
     matchedEmployeeDays: groups.size,
@@ -247,6 +252,7 @@ export async function processDevicePunches(
     filledDaysWithoutPunches: filled,
     skippedManual,
     skippedBeforeJoining,
+    leaveRowsWritten: leaveSync.rowsWritten,
     unmatchedDeviceUserIds: [...unmatchedIds].sort((a, b) =>
       a.localeCompare(b, undefined, { numeric: true }),
     ),
