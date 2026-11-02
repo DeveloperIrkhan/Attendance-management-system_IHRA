@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requirePermission } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { toIsoDate } from "@/lib/attendance/dates";
@@ -70,6 +71,14 @@ export default async function MyLeavesPage() {
                   )}
                 </td>
                 <td className="p-3">
+                  {leave.status === "REJECTED" && (
+                    <Link
+                      href={`/leaves/request?again=${leave.id}`}
+                      className="rounded bg-green-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+                    >
+                      Request Again
+                    </Link>
+                  )}
                   {leave.status === "PENDING" && (
                     <RowActionForm
                       action={decideLeaveRequestAction}
