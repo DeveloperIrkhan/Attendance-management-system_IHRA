@@ -3,6 +3,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions";
 import { getSettings } from "@/services/settings.service";
 import SettingsForm from "@/components/SettingsForm";
 import { updateSettingsAction } from "./action";
+import { formatMinutesToHours, formatTime } from "@/lib/time";
 export default async function AttendanceSettingsPage() {
   await requirePermission(PERMISSIONS.ATTENDANCE_SETTINGS);
   const s = await getSettings();
@@ -19,6 +20,37 @@ export default async function AttendanceSettingsPage() {
           attendance&quot; on an import batch. Days that HR corrected by hand
           are never overwritten.
         </p>
+        <div className="p-4 bg-green-100 rounded-md shadow-xl">
+          <h2 className="text-lg font-semibold text-green-800">
+            Current Settings
+          </h2>
+          <ul className="list-disc list-inside text-sm text-green-600">
+            <li>
+              Office Starting Time: <span className="font-semibold ml-2">{formatTime(s.shiftStart)}</span>
+            </li>
+            <li>
+              Office Ending Time: <span className="font-semibold ml-2">{formatTime(s.shiftEnd)}</span>
+            </li>
+            <li>Grace Period: <span className="font-semibold ml-2">{s.graceMinutes} minutes</span></li>
+            <li>
+              Half Day After:{" "}
+              <span className="font-semibold ml-2">{formatMinutesToHours(s.halfDayAfterMinutes)}</span>
+            </li>
+            <li>
+              Duplicate Punch Time: <span className="font-semibold ml-2">{s.duplicatePunchMinutes} minutes</span>
+            </li>
+            <li>
+              Earliest Punch Time: <span className="font-semibold ml-2">{formatTime(s.earliestPunch)}</span>
+            </li>
+            <li>
+              Latest Punch Time: <span className="font-semibold ml-2">{formatTime(s.latestPunch)}</span>
+            </li>
+            <li>
+              Short Leave Maximum:{" "}
+              <span className="font-semibold ml-2">{formatMinutesToHours(s.shortLeaveMaxMinutes)}</span>
+            </li>
+          </ul>
+        </div>
         <SettingsForm
           action={updateSettingsAction}
           values={{

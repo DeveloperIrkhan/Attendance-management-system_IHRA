@@ -377,10 +377,13 @@ export default function DashboardView({
               mutedTitle={data.series.map(
                 (s) => s.title ?? data.calendar[s.iso]?.title ?? "Day off",
               )}
+              mutedColor={data.series.map((s) =>
+                s.isHoliday ? STATUS_COLORS.holiday : undefined,
+              )}
               labelEvery={
                 data.series.length > 40 ? 5 : data.series.length > 16 ? 2 : 1
               }
-              height={310}
+              height={300}
             />
             <div className="mt-2">
               <ChartLegend
@@ -390,6 +393,7 @@ export default function DashboardView({
                     color: s.color,
                   })),
                   { label: "Day off", color: "#cbd5e1" },
+                  { label: "Holiday", color: STATUS_COLORS.holiday },
                 ]}
               />
             </div>

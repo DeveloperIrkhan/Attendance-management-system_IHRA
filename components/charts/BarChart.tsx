@@ -6,6 +6,8 @@ type Props = {
   /** Bars drawn as a faint stub (for example weekly off days). */
   muted?: boolean[];
   mutedTitle?: string[];
+  /** Colour for a muted bar, for example holidays. Without one it stays the grey stub. */
+  mutedColor?: (string | undefined)[];
   height?: number;
   /** Show every n-th label on the x axis. */
   labelEvery?: number;
@@ -30,6 +32,7 @@ export default function BarChart({
   series,
   muted,
   mutedTitle,
+  mutedColor,
   height = 250,
   labelEvery = 1,
   marker,
@@ -83,14 +86,16 @@ export default function BarChart({
       {labels.map((label, i) => {
         const x = m.l + i * band + (band - barW) / 2;
         if (muted?.[i]) {
+          const color = mutedColor?.[i];
+          const stub = color ? 5 : 5; // a coloured stub is a little taller so it can be seen
           return (
             <rect
               key={i}
               x={x}
-              y={y(0) - 2}
+              y={y(0) - stub}
               width={barW}
-              height={2}
-              fill="#cbd5e1"
+              height={stub}
+              fill={color ?? "#cbd5e1"}
             >
               <title>{`${label}: ${mutedTitle?.[i] ?? "No attendance expected"}`}</title>
             </rect>

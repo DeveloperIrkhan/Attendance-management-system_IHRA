@@ -87,6 +87,8 @@ export type SeriesPoint = {
   /** hover text for days off */
   title?: string;
   isOff: boolean;
+  /** a holiday (as opposed to a weekly off day): drawn in the holiday colour */
+  isHoliday: boolean;
   present: number;
   late: number;
   absent: number;
@@ -271,6 +273,7 @@ function buildPeriodSeries(
               ? "Weekly off"
               : undefined,
         isOff: type !== "WORKING",
+        isHoliday: type === "HOLIDAY",
         present: c.present,
         late: c.shortLeave + c.halfDay,
         absent: c.absent,
@@ -290,6 +293,7 @@ function buildPeriodSeries(
         day: 1,
         label: sameYear ? monthName(d) : `${monthName(d)} ${key.slice(2, 4)}`,
         isOff: false,
+        isHoliday: false,
         present: 0,
         late: 0,
         absent: 0,
@@ -625,6 +629,7 @@ export async function getDashboardData(
       day: dayNumber,
       label: String(dayNumber),
       isOff: type !== "WORKING",
+      isHoliday: type === "HOLIDAY",
       present: counts.present,
       late: counts.shortLeave + counts.halfDay,
       absent: counts.absent,

@@ -4,4 +4,5 @@ export const STATUS_COLORS = {
   absent: "#DC2626",
   missing: "#7C3AED",
   leave: "#2563EB",
+  holiday: "#741b47",
 } as const;
