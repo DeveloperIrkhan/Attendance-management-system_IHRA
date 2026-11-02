@@ -4,6 +4,8 @@ export type IssuedLogin = { name: string; email: string; password: string };
 export type ActionState = {
   error?: string;
   ok?: boolean;
+  /** extra text for the success banner, e.g. what a save also did */
+  message?: string;
   /** only set right after an account is created or its password reset */
   login?: IssuedLogin;
 };

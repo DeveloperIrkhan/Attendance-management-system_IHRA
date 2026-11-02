@@ -4,6 +4,9 @@ import { getSettings } from "@/services/settings.service";
 import SettingsForm from "@/components/SettingsForm";
 import { updateSettingsAction } from "./action";
 import { formatMinutesToHours, formatTime } from "@/lib/time";
+// Saving can recalculate months of device attendance, which may take a while on the host.
+export const maxDuration = 60;
+
 export default async function AttendanceSettingsPage() {
   await requirePermission(PERMISSIONS.ATTENDANCE_SETTINGS);
   const s = await getSettings();
@@ -26,28 +29,52 @@ export default async function AttendanceSettingsPage() {
           </h2>
           <ul className="list-disc list-inside text-sm text-green-600">
             <li>
-              Office Starting Time: <span className="font-semibold ml-2">{formatTime(s.shiftStart)}</span>
+              Office Starting Time:{" "}
+              <span className="font-semibold ml-2">
+                {formatTime(s.shiftStart)}
+              </span>
             </li>
             <li>
-              Office Ending Time: <span className="font-semibold ml-2">{formatTime(s.shiftEnd)}</span>
+              Office Ending Time:{" "}
+              <span className="font-semibold ml-2">
+                {formatTime(s.shiftEnd)}
+              </span>
             </li>
-            <li>Grace Period: <span className="font-semibold ml-2">{s.graceMinutes} minutes</span></li>
+            <li>
+              Grace Period:{" "}
+              <span className="font-semibold ml-2">
+                {s.graceMinutes} minutes
+              </span>
+            </li>
             <li>
               Half Day After:{" "}
-              <span className="font-semibold ml-2">{formatMinutesToHours(s.halfDayAfterMinutes)}</span>
+              <span className="font-semibold ml-2">
+                {formatMinutesToHours(s.halfDayAfterMinutes)}
+              </span>
             </li>
             <li>
-              Duplicate Punch Time: <span className="font-semibold ml-2">{s.duplicatePunchMinutes} minutes</span>
+              Duplicate Punch Time:{" "}
+              <span className="font-semibold ml-2">
+                {s.duplicatePunchMinutes} minutes
+              </span>
             </li>
             <li>
-              Earliest Punch Time: <span className="font-semibold ml-2">{formatTime(s.earliestPunch)}</span>
+              Earliest Punch Time:{" "}
+              <span className="font-semibold ml-2">
+                {formatTime(s.earliestPunch)}
+              </span>
             </li>
             <li>
-              Latest Punch Time: <span className="font-semibold ml-2">{formatTime(s.latestPunch)}</span>
+              Latest Punch Time:{" "}
+              <span className="font-semibold ml-2">
+                {formatTime(s.latestPunch)}
+              </span>
             </li>
             <li>
               Short Leave Maximum:{" "}
-              <span className="font-semibold ml-2">{formatMinutesToHours(s.shortLeaveMaxMinutes)}</span>
+              <span className="font-semibold ml-2">
+                {formatMinutesToHours(s.shortLeaveMaxMinutes)}
+              </span>
             </li>
           </ul>
         </div>

@@ -25,11 +25,12 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Login failed");
-        toast.error(data.error?? "login fails!")
+        toast.error(data.error ?? "login fails!");
         return;
       }
-      toast.success("login successfull!")
-      router.replace(data.redirectTo);
+      toast.success("login successfull!");
+      console.log("Login successful:", data.redirectTo);
+      router.replace(data.redirectTo ?? "/Dashboard");
       router.refresh();
     } catch {
       setError("Network error. Please try again.");
@@ -37,23 +38,31 @@ export default function LoginPage() {
       setLoading(false);
     }
   }
-    return (
+  return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-200 p-4">
-      {loading && <Spinner/>}
+      {loading && <Spinner />}
       <form
         onSubmit={onSubmit}
         className="w-full max-w-sm space-y-5 rounded-lg bg-white p-6 shadow-lg"
       >
         <div>
-          <h1 className="text-xl font-bold text-center text-green-800">IHRA Attendance System</h1>
-          <p className="text-sm text-zinc-500 text-center">Sign in to continue</p>
+          <h1 className="text-xl font-bold text-center text-green-800">
+            IHRA Attendance System
+          </h1>
+          <p className="text-sm text-zinc-500 text-center">
+            Sign in to continue
+          </p>
         </div>
         {error && (
-          <div className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>
+          <div className="rounded bg-red-50 p-2 text-sm text-red-700">
+            {error}
+          </div>
         )}
 
         <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="email">Enter Your Email</label>
+          <label className="text-sm font-medium" htmlFor="email">
+            Enter Your Email
+          </label>
           <input
             id="email"
             type="email"
@@ -66,7 +75,9 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="password">Enter Your Password</label>
+          <label className="text-sm font-medium" htmlFor="password">
+            Enter Your Password
+          </label>
           <input
             id="password"
             type="password"

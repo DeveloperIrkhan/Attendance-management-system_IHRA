@@ -169,8 +169,8 @@ export default function SettingsForm({
         <p className="text-xs text-zinc-500">
           Judged by the check-out time. The day gets the worse of this result
           and the arrival result, so being late and leaving early never counts
-          twice. For today it is applied only after the shift has ended. Leave
-          a field empty to turn that rule off.
+          twice. For today it is applied only after the shift has ended. Leave a
+          field empty to turn that rule off.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
@@ -279,16 +279,35 @@ export default function SettingsForm({
         />
         Count time worked on weekly off days and holidays as overtime
       </label>
-     
+
       {state.error && (
         <div className="rounded bg-red-50 p-2 text-sm text-red-700">
           {state.error}
         </div>
       )}
+      <div className="space-y-1">
+        <label htmlFor="applyTo" className="text-sm font-medium">
+          Apply the new rules to attendance from the device
+        </label>
+        <select
+          id="applyTo"
+          name="applyTo"
+          defaultValue="month"
+          className="block w-full rounded border px-3 py-2 sm:max-w-xs"
+        >
+          <option value="month">This month</option>
+          <option value="three_months">The last 3 months</option>
+          <option value="all">All device history (can take longer)</option>
+          <option value="none">Only from now on (the last 2 days)</option>
+        </select>
+        <p className="text-xs text-zinc-500">
+          Days edited by hand are never changed. Excel imports are separate: use
+          &quot;Process attendance&quot; on an import to apply the rules to it.
+        </p>
+      </div>
       {state.ok && (
         <div className="rounded bg-green-50 p-2 text-sm text-green-700">
-          Saved. Existing imports are not changed until you click &quot;Process
-          attendance&quot; on them.
+          Saved. {state.message}
         </div>
       )}
       <button

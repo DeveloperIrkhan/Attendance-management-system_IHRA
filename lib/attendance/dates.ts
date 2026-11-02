@@ -52,7 +52,19 @@ export function monthRange(year: number, month: number) {
 }
 
 //Time stored as office clock time written as UTC in this format HH:MM
+// export function clockText(d: Date | null): string {
+//   if (!d) return "-";
+//   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+// }
+
 export function clockText(d: Date | null): string {
   if (!d) return "-";
-  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+
+  const hours = d.getUTCHours();
+  const minutes = d.getUTCMinutes();
+
+  const period = hours >= 12 ? "PM" : "AM";
+  const formattedHours = hours % 12 || 12;
+
+  return `${formattedHours}:${String(minutes).padStart(2, "0")} ${period}`;
 }
