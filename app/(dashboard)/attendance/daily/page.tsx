@@ -264,7 +264,7 @@ export default async function DailyAttendancePage({
                       `(${r.employee.designation.title})`}
                   </span>
                   {r.employee.additionalCharges.length > 0 && (
-                    <span className="ml-1 text-blue-600">
+                    <span className="ml-1 text-gray-300 text-xs">
                       (
                       {r.employee.additionalCharges
                         .map((ac) => ac.department.name)
@@ -286,11 +286,11 @@ export default async function DailyAttendancePage({
                   <AttendanceStatusBadge status={r.status} />
                 </td>
                 <td className="p-3">
-                  {r.remarks && (
+                  {/* {r.remarks && (
                     <p className="max-w-xs text-xs text-zinc-600">
                       {r.remarks}
                     </p>
-                  )}
+                  )} */}
                   {canEdit && (
                     <Link
                       href={`/attendance/records/${r.id}/edit`}
