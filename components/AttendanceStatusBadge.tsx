@@ -13,6 +13,7 @@ const styles: Record<string, { label: string; className: string }> = {
   },
   ON_LEAVE: { label: "On leave", className: "bg-blue-100 text-blue-800" },
   HOLIDAY: { label: "Holiday", className: "bg-zinc-200 text-zinc-700" },
+  NOT_IN: { label: "Not in yet", className: "bg-sky-100 text-sky-800" },
   NO_RECORD: { label: "No record", className: "bg-zinc-100 text-zinc-500" },
   WEEKEND: { label: "Weekly off", className: "bg-zinc-100 text-zinc-600" },
 };
@@ -33,6 +34,7 @@ export const STATUS_ORDER = [
   "SHORT_LEAVE",
   "HALF_DAY",
   "INCOMPLETE",
+  "NOT_IN",
   "ABSENT",
   "ON_LEAVE",
   "HOLIDAY",

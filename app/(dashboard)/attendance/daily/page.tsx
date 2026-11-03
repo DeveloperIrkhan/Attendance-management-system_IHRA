@@ -1,12 +1,7 @@
 import Link from "next/link";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { formatMinutes } from "@/lib/attendance/attendance-rules";
-import {
-  addDays,
-  clockText,
-  monthParam,
-  toIsoDate,
-} from "@/lib/attendance/dates";
+import { addDays, clockText, monthParam, toIsoDate } from "@/lib/attendance/dates";
 import {
   dailyQuery,
   dailyStatusLabel,
@@ -17,6 +12,7 @@ import {
 import { getLatestAttendanceDate } from "@/services/attendance.service";
 import {
   DAILY_PAGE_SIZE,
+  getDayRoster,
   listAttendanceRecords,
 } from "@/services/attendance-list.service";
 import { listDepartments } from "@/services/department.service";
@@ -50,6 +46,7 @@ export default async function DailyAttendancePage({
   const { user, scope } = await requireScope();
   const sp = await searchParams;
   const canEdit = hasPermission(user, PERMISSIONS.ATTENDANCE_EDIT);
+
   const range = resolveDailyRange(sp, await getLatestAttendanceDate());
   if (!range) {
     return (
@@ -89,16 +86,98 @@ export default async function DailyAttendancePage({
       : undefined;
   const showPicker = pickable.length > 1;
 
-  const { records, counts, all, total, pages } = await listAttendanceRecords({
-    start: range.start,
-    end: range.end,
-    departmentId,
-    status,
-    q,
-    scope,
-    page,
-  });
-  console.log("DailyAttendancePage searchParams:", records);
+  // One normalized row type for both views below.
+  type ViewRow = {
+    key: string;
+    date: Date | null;
+    biometricId: string | null;
+    name: string;
+    department: string;
+    designation: string | null;
+    /** departments this DD also looks after */
+    chargeDepartments: string[];
+    checkIn: Date | null;
+    checkOut: Date | null;
+    workingMinutes: number;
+    lateMinutes: number;
+    overtimeMinutes: number;
+    status: string;
+    remarks: string | null;
+    recordId: string | null;
+  };
+  let viewRows: ViewRow[];
+  let counts: Record<string, number> = {};
+  let all: number;
+  let total: number;
+
+  if (range.mode === "day") {
+    // A single day lists EVERY active employee, also those who did not punch.
+    const roster = await getDayRoster({
+      date: range.start,
+      departmentId,
+      q,
+      scope,
+    });
+    for (const r of roster) counts[r.status] = (counts[r.status] ?? 0) + 1;
+    all = roster.length;
+    const shown = roster.filter((r) => status === "ALL" || r.status === status);
+    total = shown.length;
+    viewRows = shown
+      .slice((page - 1) * DAILY_PAGE_SIZE, page * DAILY_PAGE_SIZE)
+      .map((r) => ({
+        key: r.key,
+        date: null,
+        biometricId: r.employee.biometricId,
+        name: r.employee.name,
+        department: r.employee.department.name,
+        designation: r.employee.designation?.title ?? null,
+        chargeDepartments: r.employee.additionalCharges.map(
+          (c) => c.department.name,
+        ),
+        checkIn: r.record?.checkIn ?? null,
+        checkOut: r.record?.checkOut ?? null,
+        workingMinutes: r.record?.workingMinutes ?? 0,
+        lateMinutes: r.record?.lateMinutes ?? 0,
+        overtimeMinutes: r.record?.overtimeMinutes ?? 0,
+        status: r.status,
+        remarks: r.record ? r.record.remarks : r.note,
+        recordId: r.record?.id ?? null,
+      }));
+  } else {
+    // A range or a month lists the saved records of those days.
+    const list = await listAttendanceRecords({
+      start: range.start,
+      end: range.end,
+      departmentId,
+      status,
+      q,
+      scope,
+      page,
+    });
+    counts = list.counts;
+    all = list.all;
+    total = list.total;
+    viewRows = list.records.map((r) => ({
+      key: r.id,
+      date: r.date,
+      biometricId: r.employee.biometricId,
+      name: r.employee.name,
+      department: r.employee.department.name,
+      designation: r.employee.designation?.title ?? null,
+      chargeDepartments: r.employee.additionalCharges.map(
+        (c) => c.department.name,
+      ),
+      checkIn: r.checkIn,
+      checkOut: r.checkOut,
+      workingMinutes: r.workingMinutes,
+      lateMinutes: r.lateMinutes,
+      overtimeMinutes: r.overtimeMinutes,
+      status: r.status,
+      remarks: r.remarks,
+      recordId: r.id,
+    }));
+  }
+  const pages = Math.max(1, Math.ceil(total / DAILY_PAGE_SIZE));
 
   const keep = { department: departmentId, q };
   const href = (extra: { status?: typeof status; page?: number }) =>
@@ -169,8 +248,8 @@ export default async function DailyAttendancePage({
 
       {range.clamped && (
         <p className="rounded bg-amber-50 p-2 text-xs text-amber-800">
-          The range was longer than a year, so only the last 366 days up to your
-          end date are shown.
+          The range was longer than a year, so only the last 366 days up to
+          your end date are shown.
         </p>
       )}
 
@@ -210,14 +289,17 @@ export default async function DailyAttendancePage({
           ? "no matching records"
           : `showing ${firstRow} to ${lastRow} of ${total}`}
         {q && <> · search &quot;{q}&quot;</>}
+        {range.mode === "day" && (
+          <> · every employee is listed, also those who did not punch</>
+        )}
       </p>
 
       <div className="overflow-x-auto rounded-md p-2 shadow-lg bg-white">
         <table className="w-full text-sm">
           <thead className="bg-green-800 text-white text-left">
             <tr>
-              {multiDay && <th className="p-3">Date</th>}
               <th className="p-3">Serial No</th>
+              {multiDay && <th className="p-3">Date</th>}
               <th className="p-3">Biometric Id</th>
               <th className="p-3">Name</th>
               <th className="p-3">Department</th>
@@ -231,19 +313,22 @@ export default async function DailyAttendancePage({
             </tr>
           </thead>
           <tbody>
-            {records.length === 0 && (
+            {viewRows.length === 0 && (
               <tr>
                 <td
-                  colSpan={multiDay ? 11 : 10}
+                  colSpan={multiDay ? 12 : 11}
                   className="p-6 text-center text-zinc-500"
                 >
                   No records match these filters.
                 </td>
               </tr>
             )}
-            {records.map((r: any, index: number) => (
-              <tr key={r.id} className="border-t align-top">
-                {multiDay && (
+            {viewRows.map((r, i) => (
+              <tr key={r.key} className="border-t align-top">
+                <td className="p-3 tabular-nums text-zinc-500">
+                  {(page - 1) * DAILY_PAGE_SIZE + i + 1}
+                </td>
+                {multiDay && r.date && (
                   <td className="whitespace-nowrap p-3">
                     {toIsoDate(r.date)}{" "}
                     <span className="text-xs text-zinc-400">
@@ -254,22 +339,18 @@ export default async function DailyAttendancePage({
                     </span>
                   </td>
                 )}
-                <td className="p-3">{index + 1}</td>
-                <td className="p-3">{r.employee.biometricId}</td>
-                <td className="p-3 font-medium">{r.employee.name}</td>
+                <td className="p-3">{r.biometricId}</td>
+                <td className="p-3 font-medium">{r.name}</td>
                 <td className="p-3">
-                  {r.employee.department.name}{" "}
-                  <span className="ml-1 text-gray-400">
-                    {r.employee.designation?.title &&
-                      `(${r.employee.designation.title})`}
-                  </span>
-                  {r.employee.additionalCharges.length > 0 && (
-                    <span className="ml-1 text-gray-300 text-xs">
-                      (
-                      {r.employee.additionalCharges
-                        .map((ac: any) => ac.department.name)
-                        .join(", ")}
-                      )
+                  {r.department}
+                  {r.designation && (
+                    <span className="ml-1 text-gray-400">
+                      ({r.designation})
+                    </span>
+                  )}
+                  {r.chargeDepartments.length > 0 && (
+                    <span className="ml-1 text-xs text-zinc-500">
+                      (also {r.chargeDepartments.join(", ")})
                     </span>
                   )}
                 </td>
@@ -287,13 +368,17 @@ export default async function DailyAttendancePage({
                 </td>
                 <td className="p-3">
                   {/* {r.remarks && (
-                    <p className="max-w-xs text-xs text-zinc-600">
+                    <p
+                      className={`max-w-xs text-xs ${
+                        r.recordId ? "text-zinc-600" : "italic text-zinc-400"
+                      }`}
+                    >
                       {r.remarks}
                     </p>
                   )} */}
-                  {canEdit && (
+                  {canEdit && r.recordId && (
                     <Link
-                      href={`/attendance/records/${r.id}/edit`}
+                      href={`/attendance/records/${r.recordId}/edit`}
                       className="mt-1 inline-block rounded border border-green-800 bg-white px-2 py-1 text-xs text-green-800 hoverEffect hover:bg-green-800 hover:text-white"
                     >
                       Edit

@@ -23,6 +23,7 @@ export const DAILY_STATUS_OPTIONS = [
   { value: "ALL", label: "All statuses" },
   { value: "PRESENT", label: "Present" },
   { value: "ON_LEAVE", label: "On leave" },
+  { value: "NOT_IN", label: "Not in yet (today)" },
   { value: "ABSENT", label: "Absent" },
   { value: "INCOMPLETE", label: "Missing punch" },
   { value: "SHORT_LEAVE", label: "Short leave" },
