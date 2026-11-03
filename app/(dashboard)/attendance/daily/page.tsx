@@ -267,7 +267,7 @@ export default async function DailyAttendancePage({
                     <span className="ml-1 text-gray-300 text-xs">
                       (
                       {r.employee.additionalCharges
-                        .map((ac) => ac.department.name)
+                        .map((ac: any) => ac.department.name)
                         .join(", ")}
                       )
                     </span>
