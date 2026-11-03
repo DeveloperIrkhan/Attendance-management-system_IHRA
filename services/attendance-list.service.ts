@@ -5,22 +5,16 @@ import type { DailyStatus } from "@/lib/attendance/daily-filters";
 import { employeeWhereFor, type DataScope } from "@/lib/auth/data-scope";
 
 export const DAILY_PAGE_SIZE = 100;
-
-/**
- * Attendance records for one day, a date range or a month, filtered by department, status and a
- * search text. The DD's own department limit is always applied through `scope`.
- * `counts` ignores the status filter, so the status buttons can show how many days match each.
- */
 export async function listAttendanceRecords(opts: {
   start: Date;
   end: Date;
   departmentId?: string;
   status: DailyStatus;
-  q?: string;
-  scope: DataScope;
+  q?: string; //Optional search keyword
+  scope: DataScope; //User's data-access permissions
   page: number;
 }) {
-  const q = opts.q?.trim().slice(0, 60);
+  const q = opts.q?.trim().slice(0, 60); //Limits the search keyword to 60 characters.
   const employee = {
     ...employeeWhereFor(opts.scope, opts.departmentId),
     ...(q
@@ -33,6 +27,10 @@ export async function listAttendanceRecords(opts: {
         }
       : {}),
   };
+  // gte	Greater than or equal to
+  // gt	Greater than
+  // lte	Less than or equal to
+  // lt	Less than
   const dateWhere = { gte: opts.start, lt: addDays(opts.end, 1) };
   const base = { date: dateWhere, employee };
   const where = opts.status === "ALL" ? base : { ...base, status: opts.status };
@@ -54,7 +52,28 @@ export async function listAttendanceRecords(opts: {
             name: true,
             employeeCode: true,
             biometricId: true,
-            department: { select: { name: true } },
+
+            department: {
+              select: {
+                name: true,
+              },
+            },
+
+            designation: {
+              select: {
+                title: true,
+              },
+            },
+
+            additionalCharges: {
+              select: {
+                department: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         },
       },

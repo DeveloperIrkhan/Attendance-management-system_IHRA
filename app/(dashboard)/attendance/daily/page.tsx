@@ -50,7 +50,6 @@ export default async function DailyAttendancePage({
   const { user, scope } = await requireScope();
   const sp = await searchParams;
   const canEdit = hasPermission(user, PERMISSIONS.ATTENDANCE_EDIT);
-
   const range = resolveDailyRange(sp, await getLatestAttendanceDate());
   if (!range) {
     return (
@@ -99,6 +98,7 @@ export default async function DailyAttendancePage({
     scope,
     page,
   });
+  console.log("DailyAttendancePage searchParams:", records);
 
   const keep = { department: departmentId, q };
   const href = (extra: { status?: typeof status; page?: number }) =>
@@ -257,7 +257,22 @@ export default async function DailyAttendancePage({
                 <td className="p-3">{index + 1}</td>
                 <td className="p-3">{r.employee.biometricId}</td>
                 <td className="p-3 font-medium">{r.employee.name}</td>
-                <td className="p-3">{r.employee.department.name}</td>
+                <td className="p-3">
+                  {r.employee.department.name}{" "}
+                  <span className="ml-1 text-gray-400">
+                    {r.employee.designation?.title &&
+                      `(${r.employee.designation.title})`}
+                  </span>
+                  {r.employee.additionalCharges.length > 0 && (
+                    <span className="ml-1 text-blue-600">
+                      (
+                      {r.employee.additionalCharges
+                        .map((ac) => ac.department.name)
+                        .join(", ")}
+                      )
+                    </span>
+                  )}
+                </td>
                 <td className="p-3">{clockText(r.checkIn)}</td>
                 <td className="p-3">{clockText(r.checkOut)}</td>
                 <td className="p-3">

@@ -41,7 +41,7 @@ export const monthParam = (year: number, month: number) =>
 export const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
 
 export function addDays(d: Date, days: number): Date {
-  return new Date(d.getTime() + days * 86_400_000);
+  return new Date(d.getTime() + days * 86_400_000);//24 hours
 }
 
 export function monthRange(year: number, month: number) {
