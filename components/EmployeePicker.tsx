@@ -79,7 +79,7 @@ export default function EmployeePicker({
       <legend className="px-1 text-sm font-medium">Employees</legend>
       <input type="hidden" name={name} value={[...picked].join(",")} />
 
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="flex justify-center flex-wrap items-center gap-6">
         <input
           type="search"
           value={query}
