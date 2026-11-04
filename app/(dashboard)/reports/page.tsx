@@ -12,6 +12,7 @@ import { buildReport, listReportEmployees } from "@/services/report.service";
 import { getLatestAttendanceDate } from "@/services/attendance.service";
 import ScrollTable from "@/components/ScrollTable";
 import EmployeePicker from "@/components/EmployeePicker";
+import CustomDownload from "@/components/CustomDownload";
 import { canExportReports } from "@/lib/reports/csv";
 
 type SearchParams = Promise<Record<string, string | undefined>>;
@@ -117,7 +118,9 @@ export default async function ReportsPage({
               <input
                 type="date"
                 name="from"
-                defaultValue={isSalary ? params.from : (params.from ?? defaultFrom)}
+                defaultValue={
+                  isSalary ? params.from : (params.from ?? defaultFrom)
+                }
                 className={`block ${input}`}
               />
             </label>
@@ -160,7 +163,9 @@ export default async function ReportsPage({
               className={`block ${input}`}
             >
               <option value="">
-                {params.type === "history" ? "Choose an employee" : "All employees"}
+                {params.type === "history"
+                  ? "Choose an employee"
+                  : "All employees"}
               </option>
               {employees.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -248,6 +253,11 @@ export default async function ReportsPage({
                 >
                   Download CSV (Excel)
                 </a>
+                <CustomDownload
+                  baseQuery={exportQuery.toString()}
+                  columns={table.column.map((c) => c.label)}
+                  storageKey={`report-columns:${params.type}`}
+                />
               </div>
             )}
           </div>
@@ -288,8 +298,18 @@ export default async function ReportsPage({
                     key={i}
                     className={
                       subtotal.has(i)
-                        ? "border-t border-green-800 bg-green-50 font-semibold"
-                        : "border-t"
+                        ? "border-t border-green-100 bg-green-50 font-semibold"
+                        : row.includes("Weekly off")
+                          ? "border-t bg-gray-100"
+                          : row.includes("On leave")
+                            ? "border-t bg-red-100"
+                          : row.includes("Short leave")
+                            ? "border-t bg-yellow-100"
+                          : row.includes("Holiday")
+                            ? "border-t bg-lime-100"
+                          : row.includes("Present")
+                            ? "border-t bg-green-100"
+                            : "border-t"
                     }
                   >
                     {row.map((cell, j) => (

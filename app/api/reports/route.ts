@@ -5,8 +5,10 @@ import { canExportReports, renderReportCsv } from "@/lib/reports/csv";
 import { renderReportPdf } from "@/lib/reports/pdf";
 import { buildReport } from "@/services/report.service";
 import { parseReportParams } from "@/lib/reports/type";
+import { parseColumnList, selectColumns } from "@/lib/reports/columns";
 
 // GET /api/reports?type=monthly&month=2026-06&department=...&format=pdf|csv
+// Optional: &columns=0,2,5 keeps only those columns (by position), for the customized download.
 export async function GET(request: Request) {
   const auth = await apiAuth();
   if (!auth.ok) return auth.response;
@@ -23,9 +25,23 @@ export async function GET(request: Request) {
 
   try {
     // the scope is applied inside buildReport, so a DD only ever gets their own department
-    const table = await buildReport(params, scope);
+    const full = await buildReport(params, scope);
+
+    // Customized download: only the ticked columns, in the report's own order.
+    const picked = parseColumnList(
+      url.searchParams.get("columns"),
+      full.column.length,
+    );
+    if (picked && picked.length === 0) {
+      return NextResponse.json(
+        { error: "Choose at least one column." },
+        { status: 400 },
+      );
+    }
+    const table = picked ? selectColumns(full, picked) : full;
+
     const stamp = new Date().toISOString().slice(0, 10);
-    const name = `${params.type}-report-${stamp}`;
+    const name = `${params.type}-report${picked ? "-custom" : ""}-${stamp}`;
 
     if (format === "csv") {
       return new Response(renderReportCsv(table), {
