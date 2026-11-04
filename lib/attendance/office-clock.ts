@@ -25,7 +25,7 @@ export function toOfficeClock(
  * Today's date (as UTC midnight) and the minutes since midnight on the office clock.
  * By default that is the server's own clock. The sync on the office PC is right that way, but a
  * web server in another time zone (Vercel runs in UTC) would see a different "today" and "now".
- * Set OFFICE_TIMEZONE (for example "Asia/Karachi") on every machine to make them all agree.
+ * Set OFFICE_TIMEZONE (for example "Asia or islamand/karachi") on every machine to make them all agree.
  */
 export function officeNow(now: Date = new Date()) {
   const zone = process.env.OFFICE_TIMEZONE?.trim();
