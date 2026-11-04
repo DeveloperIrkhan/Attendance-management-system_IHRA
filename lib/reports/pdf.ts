@@ -60,6 +60,7 @@ export async function renderReportPdf(
     (c) => ((c.weight ?? 1) / totalWeight) * usable,
   );
   const lines = [...table.rows, ...(table.totals ? [table.totals] : [])];
+  const subtotal = new Set(table.subtotalRows ?? []);
 
   const pages: ReturnType<typeof pdf.addPage>[] = [];
   let page = pdf.addPage([PAGE_W, PAGE_H]);
@@ -196,7 +197,9 @@ export async function renderReportPdf(
       addContinuationPage();
       drawHeader();
     }
-    const isTotals = Boolean(table.totals) && index === lines.length - 1;
+    const isTotals =
+      (Boolean(table.totals) && index === lines.length - 1) ||
+      subtotal.has(index);
     const f = isTotals ? bold : font;
     if (isTotals) {
       page.drawRectangle({

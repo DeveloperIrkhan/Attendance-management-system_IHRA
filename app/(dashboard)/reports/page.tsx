@@ -11,6 +11,7 @@ import { listDepartments } from "@/services/department.service";
 import { buildReport, listReportEmployees } from "@/services/report.service";
 import { getLatestAttendanceDate } from "@/services/attendance.service";
 import ScrollTable from "@/components/ScrollTable";
+import EmployeePicker from "@/components/EmployeePicker";
 import { canExportReports } from "@/lib/reports/csv";
 
 type SearchParams = Promise<Record<string, string | undefined>>;
@@ -28,6 +29,7 @@ export default async function ReportsPage({
   const params = parseReportParams((k) => sp[k]);
   const meta = REPORT_TYPE.find((t: any) => t.value === params.type)!;
   const has = (f: (typeof meta.filters)[number]) => meta.filters.includes(f);
+  const isSalary = params.type === "salary";
 
   const [departments, employees, latest] = await Promise.all([
     scope.kind === "ALL" ? listDepartments() : Promise.resolve([]),
@@ -57,6 +59,7 @@ export default async function ReportsPage({
     Object.entries(params).filter(([, v]) => v) as [string, string][],
   );
   const canExport = canExportReports(user);
+  const subtotal = new Set(table?.subtotalRows ?? []);
 
   return (
     <div className="space-y-4">
@@ -114,7 +117,7 @@ export default async function ReportsPage({
               <input
                 type="date"
                 name="from"
-                defaultValue={params.from ?? defaultFrom}
+                defaultValue={isSalary ? params.from : (params.from ?? defaultFrom)}
                 className={`block ${input}`}
               />
             </label>
@@ -123,22 +126,42 @@ export default async function ReportsPage({
               <input
                 type="date"
                 name="to"
-                defaultValue={params.to ?? defaultDate}
+                defaultValue={isSalary ? params.to : (params.to ?? defaultDate)}
                 className={`block ${input}`}
               />
             </label>
           </>
         )}
-        {has("employee") && (
+        {has("employee") && isSalary && (
+          <EmployeePicker
+            // remount when the URL changes so the ticks match what is applied
+            key={`${params.employees ?? ""}-${params.employee ?? ""}`}
+            employees={employees.map((e) => ({
+              id: e.id,
+              name: e.name,
+              code: e.employeeCode,
+              departmentId: e.department.id,
+              departmentName: e.department.name,
+              isActive: e.isActive,
+            }))}
+            selected={[
+              ...(params.employees ? params.employees.split(",") : []),
+              ...(params.employee ? [params.employee] : []),
+            ]}
+          />
+        )}
+        {has("employee") && !isSalary && (
           <label className="space-y-1 text-sm font-medium">
             Employee
             <select
               name="employee"
-              required
+              required={params.type === "history"}
               defaultValue={params.employee ?? ""}
               className={`block ${input}`}
             >
-              <option value="">Choose an employee</option>
+              <option value="">
+                {params.type === "history" ? "Choose an employee" : "All employees"}
+              </option>
               {employees.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name} ({e.employeeCode})
@@ -183,6 +206,15 @@ export default async function ReportsPage({
         <button type="submit" className="green-button hoverEffect">
           Show report
         </button>
+        {isSalary && (
+          <p className="basis-full text-xs text-zinc-500">
+            Choose a Month, or fill From and To for another period (then the
+            dates are used). Tick employees to report on exactly those people,
+            from one department or several; the Department filter is then
+            ignored. With nobody ticked you get everybody, or the whole
+            department chosen.
+          </p>
+        )}
       </form>
 
       {error && (
@@ -252,7 +284,14 @@ export default async function ReportsPage({
                   </tr>
                 )}
                 {table.rows.map((row, i) => (
-                  <tr key={i} className="border-t">
+                  <tr
+                    key={i}
+                    className={
+                      subtotal.has(i)
+                        ? "border-t border-green-800 bg-green-50 font-semibold"
+                        : "border-t"
+                    }
+                  >
                     {row.map((cell, j) => (
                       <td
                         key={j}

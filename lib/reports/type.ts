@@ -1,6 +1,7 @@
 export type ReportType =
   | "daily"
   | "monthly"
+  | "salary"
   | "late"
   | "absent"
   | "overtime"
@@ -28,6 +29,13 @@ export const REPORT_TYPE: {
     description:
       "One line per employee: days present, late, absent, leave, overtime",
     filters: ["month", "department"],
+  },
+  {
+    value: "salary",
+    label: "Salary attendance sheet",
+    description:
+      "One row per employee per day, with check-in and check-out and a total row for each employee, for salary records. For everybody, one department, or any employees you choose",
+    filters: ["month", "range", "department", "employee"],
   },
   {
     value: "daily",
@@ -85,6 +93,8 @@ export type ReportTable = {
   column: ReportColumn[];
   rows: string[][];
   totals?: string[];
+  /** indexes of rows that are subtotals (shown bold and shaded) */
+  subtotalRows?: number[];
   notes?: string[];
 };
 
@@ -96,6 +106,8 @@ export type ReportParams = {
   month?: string;
   department?: string;
   employee?: string;
+  /** several employees, ids separated by commas (any departments inside the person's scope) */
+  employees?: string;
   status?: string;
 };
 
@@ -117,6 +129,7 @@ export function parseReportParams(
     month: v("month"),
     department: v("department"),
     employee: v("employee"),
+    employees: v("employees"),
     status: v("status"),
   };
 }

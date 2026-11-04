@@ -6,6 +6,7 @@ import {
   type DataScope,
 } from "@/lib/auth/data-scope";
 import {
+  addDays,
   clockText,
   monthRange,
   parseIsoDate,
@@ -18,6 +19,15 @@ import { APPROVER_LABEL } from "@/lib/leave/approval-routing";
 import type { ReportParams, ReportTable } from "@/lib/reports/type";
 import { getLatestAttendanceDate } from "./attendance.service";
 import { getMonthlySummary } from "./monthly-summary.service";
+import { getMonthCalendar, makeDayTypeResolver } from "./settings.service";
+import {
+  addSalaryDay,
+  dayStatusText,
+  ddmmyyyy,
+  emptySalaryCounters,
+  salaryCells,
+  type DayRecord,
+} from "@/lib/reports/salary-rows";
 import { ServiceError } from "@/lib/action-state";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -36,14 +46,34 @@ const mins = (n: number) => (n > 0 ? formatMinutes(n) : "-");
 const fmtDate = (d: Date) => toIsoDate(d);
 
 const MAX_ROWS = 5000;
+/** The salary sheet has a row per employee per day: keep one report to a size that opens fast. */
+const MAX_SALARY_ROWS = 8000;
 const MAX_RANGE_DAYS = 366;
 
 export function listReportEmployees(scope: DataScope) {
   return prisma.employee.findMany({
     where: employeeWhereFor(scope),
     orderBy: { name: "asc" },
-    select: { id: true, name: true, employeeCode: true },
+    select: {
+      id: true,
+      name: true,
+      employeeCode: true,
+      isActive: true,
+      department: { select: { id: true, name: true } },
+    },
   });
+}
+
+/** The employee ids in ?employee= and ?employees=a,b,c: tidy, unique and not too many. */
+function parseEmployeeIds(params: ReportParams): string[] {
+  const raw = [
+    ...(params.employees ? params.employees.split(",") : []),
+    ...(params.employee ? [params.employee] : []),
+  ];
+  const ids = raw
+    .map((x) => x.trim())
+    .filter((x) => /^[A-Za-z0-9_-]{5,40}$/.test(x));
+  return [...new Set(ids)].slice(0, 200);
 }
 
 export async function buildReport(
@@ -194,6 +224,204 @@ export async function buildReport(
         rows: rows.map((r) => [r.code, r.name, r.department, ...line(r)]),
         totals: ["", "Total", "", ...line(totals)],
         notes: ["Missing punch days count as absent until HR corrects them."],
+      };
+    }
+
+    // ----------------------------------------------------------------- salary
+    case "salary": {
+      // The period: From/To when given, otherwise the chosen month.
+      const rangeFrom = parseIsoDate(params.from);
+      const rangeTo = parseIsoDate(params.to);
+      let start: Date;
+      let end: Date; // inclusive
+      let periodText: string;
+      if (rangeFrom || rangeTo) {
+        start = (rangeFrom ?? rangeTo)!;
+        end = (rangeTo ?? rangeFrom)!;
+        if (end < start) {
+          throw new ServiceError("The end date is before the start date.");
+        }
+        if ((end.getTime() - start.getTime()) / 86_400_000 > MAX_RANGE_DAYS) {
+          throw new ServiceError("Choose a range of at most one year.");
+        }
+        periodText = `${fmtDate(start)} to ${fmtDate(end)}`;
+      } else {
+        const m = monthRange(period.year, period.month);
+        start = m.start;
+        end = addDays(m.end, -1);
+        periodText = monthName;
+      }
+
+      // Everybody in the scope (and department), or exactly the employees that were picked,
+      // from one department or several. Picked employees win over the department filter.
+      const ids = parseEmployeeIds(params);
+      const picked =
+        ids.length > 0
+          ? await prisma.employee.findMany({
+              where: { id: { in: ids }, ...employeeWhereFor(scope) },
+              orderBy: { employeeCode: "asc" },
+              select: { id: true, name: true, employeeCode: true },
+            })
+          : null;
+      if (picked && picked.length === 0) {
+        throw new ServiceError("Employee not found.");
+      }
+      const employeeFilter = picked
+        ? { ...employeeWhereFor(scope), id: { in: picked.map((p) => p.id) } }
+        : employee;
+
+      const records = await prisma.attendance.findMany({
+        where: {
+          date: { gte: start, lte: end },
+          employee: employeeFilter,
+        },
+        select: {
+          employeeId: true,
+          date: true,
+          status: true,
+          checkIn: true,
+          checkOut: true,
+          lateMinutes: true,
+          overtimeMinutes: true,
+          workingMinutes: true,
+        },
+      });
+      const byEmployee = new Map<string, Map<string, DayRecord & { checkIn: Date | null; checkOut: Date | null }>>();
+      for (const r of records) {
+        const days =
+          byEmployee.get(r.employeeId) ??
+          new Map<string, DayRecord & { checkIn: Date | null; checkOut: Date | null }>();
+        days.set(toIsoDate(r.date), r);
+        byEmployee.set(r.employeeId, days);
+      }
+
+      const people = await prisma.employee.findMany({
+        where: {
+          AND: [
+            employeeFilter,
+            { OR: [{ isActive: true }, { id: { in: [...byEmployee.keys()] } }] },
+          ],
+        },
+        orderBy: { employeeCode: "asc" },
+        select: {
+          id: true,
+          name: true,
+          employeeCode: true,
+          joiningDate: true,
+          department: { select: { name: true } },
+        },
+      });
+
+      const dayCount =
+        Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+      if (people.length * (dayCount + 1) > MAX_SALARY_ROWS) {
+        throw new ServiceError(
+          "This report would be too long. Choose a shorter period, one department or one employee.",
+        );
+      }
+
+      // Weekly off days and holidays, for every month the period touches.
+      const resolvers = new Map<string, ReturnType<typeof makeDayTypeResolver>>();
+      for (let d = start; d <= end; d = addDays(d, 1)) {
+        const key = toIsoDate(d).slice(0, 7);
+        if (!resolvers.has(key)) {
+          resolvers.set(
+            key,
+            makeDayTypeResolver(
+              await getMonthCalendar(d.getUTCFullYear(), d.getUTCMonth() + 1),
+            ),
+          );
+        }
+      }
+
+      const rows: string[][] = [];
+      const subtotalRows: number[] = [];
+      const grand = emptySalaryCounters();
+
+      for (const person of people) {
+        const days = byEmployee.get(person.id);
+        const total = emptySalaryCounters();
+        for (let d = start; d <= end; d = addDays(d, 1)) {
+          // days before the employee joined are not listed
+          if (person.joiningDate && d < person.joiningDate) continue;
+          const rec = days?.get(toIsoDate(d)) ?? null;
+          const dayType = resolvers.get(toIsoDate(d).slice(0, 7))!(d);
+          const one = emptySalaryCounters();
+          addSalaryDay(one, rec);
+          addSalaryDay(total, rec);
+          rows.push([
+            person.employeeCode,
+            ddmmyyyy(d),
+            person.name,
+            person.department.name,
+            clockText(rec?.checkIn ?? null),
+            clockText(rec?.checkOut ?? null),
+            ...salaryCells(one, mins),
+            dayStatusText(rec, dayType, label),
+          ]);
+        }
+        // the employee's total for the whole period
+        subtotalRows.push(rows.length);
+        rows.push([
+          person.employeeCode,
+          "Total",
+          person.name,
+          person.department.name,
+          "",
+          "",
+          ...salaryCells(total, mins),
+          "",
+        ]);
+        (Object.keys(grand) as (keyof typeof grand)[]).forEach((k) => {
+          grand[k] += total[k];
+        });
+      }
+
+      const scopeText = !picked
+        ? who
+        : picked.length === 1
+          ? `${picked[0].name} (${picked[0].employeeCode})`
+          : `${picked.length} selected employees`;
+      return {
+        title: "Salary attendance sheet",
+        subtitle: `${periodText} · ${scopeText}`,
+        column: [
+          { label: "Code", weight: 0.7 },
+          { label: "Date", weight: 1.1 },
+          { label: "Name", weight: 2 },
+          { label: "Department", weight: 1.5 },
+          { label: "In", align: "center", weight: 1 },
+          { label: "Out", align: "center", weight: 1 },
+          { label: "Working days", align: "right", weight: 0.85 },
+          { label: "Present", align: "right", weight: 0.85 },
+          { label: "Short leave", align: "right", weight: 0.85 },
+          { label: "Half day", align: "right", weight: 0.85 },
+          { label: "Missing punch", align: "right", weight: 0.85 },
+          { label: "Absent", align: "right", weight: 0.85 },
+          { label: "On leave", align: "right", weight: 0.85 },
+          { label: "Late", align: "right", weight: 0.85 },
+          { label: "Overtime", align: "right", weight: 0.85 },
+          { label: "Worked", align: "right", weight: 0.85 },
+          { label: "Status", weight: 1.2 },
+        ],
+        rows,
+        subtotalRows,
+        totals:
+          people.length > 1
+            ? ["", "Grand total", "", "", "", "", ...salaryCells(grand, mins), ""]
+            : undefined,
+        notes: [
+          "Each row is one day; the Total row of each employee adds up the days above it and matches the Monthly attendance report.",
+          "Missing punch days count as absent until HR corrects them.",
+          ...(picked && picked.length > 1
+            ? [
+                `Employees: ${picked
+                  .slice(0, 40)
+                  .map((p) => `${p.name} (${p.employeeCode})`)
+                  .join(", ")}${picked.length > 40 ? ", ..." : ""}`,
+              ]
+            : []),
+        ],
       };
     }
 
