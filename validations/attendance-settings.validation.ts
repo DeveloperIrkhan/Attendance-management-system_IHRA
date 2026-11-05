@@ -21,7 +21,7 @@ export const settingsSchema = z
   .object({
     shiftStart: time,
     shiftEnd: time,
-    graceMinutes: minutes(0, 120, "Grace period"),
+    graceMinutes: minutes(0, 180, "Grace period"),
     halfDayAfterMinutes: minutes(1, 480, "Half-day threshold"),
     duplicatePunchMinutes: minutes(0, 120, "Repeated-punch window"),
     earliestPunch: time,

@@ -101,7 +101,7 @@ export default function SettingsForm({
             type="number"
             name="graceMinutes"
             min={0}
-            max={120}
+            max={180}
             defaultValue={values.graceMinutes}
             required
             className={input}
