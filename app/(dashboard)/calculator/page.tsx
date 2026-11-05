@@ -268,7 +268,7 @@ export default function CalculatorPage() {
 
             <button
               onClick={performCalculation}
-              className="h-16 sm:h-[72px] rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-2xl font-bold shadow-lg shadow-indigo-500/20 hover:brightness-110 active:scale-95 transition-all"
+              className="h-16 sm:h-18 rounded-2xl bg-linear-to-br from-indigo-500 to-violet-600 text-2xl font-bold shadow-lg shadow-indigo-500/20 hover:brightness-110 active:scale-95 transition-all"
             >
               =
             </button>
