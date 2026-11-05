@@ -1,5 +1,4 @@
-import { requirePermission } from "@/lib/auth/authorization";
-import { PERMISSIONS } from "@/lib/auth/permissions";
+import { requireLeaveScope } from "@/lib/auth/authorization";
 import { clockText, toIsoDate } from "@/lib/attendance/dates";
 import { listEmployeeOptions } from "@/services/leave.service";
 import { listShortLeaves } from "@/services/short-leave.service";
@@ -19,20 +18,22 @@ export default async function ShortLeavesPage({
 }: {
   searchParams: SearchParams;
 }) {
-  await requirePermission(PERMISSIONS.LEAVES_MANAGE);
+  // Approving and filing short leaves stays with HR (leaves:manage); a DD, CEO or Chairman
+  // can look at the short leaves in their scope, read only.
+  const { scope, canManage } = await requireLeaveScope();
   const sp = await searchParams;
   const status = STATUSES.find((s) => s === sp.status);
 
   const [items, employees, settings] = await Promise.all([
-    listShortLeaves(status),
-    listEmployeeOptions(),
+    listShortLeaves(status, scope),
+    canManage ? listEmployeeOptions() : Promise.resolve([]),
     getSettings(),
   ]);
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Short leaves</h1>
-      <LeaveTabs active="/leaves/short" />
+      <LeaveTabs active="/leaves/short" canManage={canManage} />
       <p className="max-w-3xl text-sm text-zinc-600">
         Up to {settings.shortLeaveMaxMinutes} minutes within shift hours
         {settings.shortLeaveMonthlyLimit > 0
@@ -45,6 +46,7 @@ export default async function ShortLeavesPage({
         These can be changed under Rules.
       </p>
 
+      {canManage && (
       <details
         className="shadow-lg rounded-md bg-white p-4"
         open={items.length === 0}
@@ -64,6 +66,7 @@ export default async function ShortLeavesPage({
           />
         </div>
       </details>
+      )}
 
       <form
         method="get"
@@ -130,7 +133,7 @@ export default async function ShortLeavesPage({
                   {r.reason ?? ""}
                 </td>
                 <td className="space-x-2 p-3">
-                  {r.status === "PENDING" && (
+                  {canManage && r.status === "PENDING" && (
                     <>
                       <RowActionForm
                         action={decideShortLeaveAction}
@@ -148,7 +151,8 @@ export default async function ShortLeavesPage({
                       />
                     </>
                   )}
-                  {(r.status === "PENDING" || r.status === "APPROVED") && (
+                  {canManage &&
+                    (r.status === "PENDING" || r.status === "APPROVED") && (
                     <RowActionForm
                       action={decideShortLeaveAction}
                       id={r.id}

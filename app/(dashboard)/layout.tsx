@@ -1,6 +1,12 @@
 import AppShell from "../../components/shell/AppShell";
 import { buildNav } from "../../components/shell/nav";
-import { getApproverIdentity, getDataScope, hasPermission, requireUser } from "../../lib/auth/authorization";
+import {
+  getApproverIdentity,
+  getDataScope,
+  getLeaveScope,
+  hasPermission,
+  requireUser,
+} from "../../lib/auth/authorization";
 import { Permission, PERMISSIONS } from "../../lib/auth/permissions";
 import { getShellData } from "../../services/dashboard.service";
 import { countPendingForApprover } from "../../services/leave.service";
@@ -26,6 +32,7 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
         isApprover,
         scope,
         hasEmployee: Boolean(user.employeeId),
+        leaveScope: getLeaveScope(user),
       })}
       canSearchEmployees={can(PERMISSIONS.EMPLOYEES_VIEW)}
       notifications={shell.notifications}

@@ -42,6 +42,42 @@ export function resolveDataScope(input: {
 }
 
 /**
+ * Whose LEAVE requests a person may look at (the Leaves pages). Stricter than resolveDataScope:
+ * an IT Officer sees everyone's attendance but has no business reading leave reasons.
+ *
+ *   leaves:manage (HR) or leaves:view   -> ALL
+ *   CEO, Chairman (by designation)      -> ALL
+ *   DD (by designation)                 -> DEPARTMENT (their own, plus any additional charge)
+ *   everyone else                       -> null (no access to the Leaves pages)
+ */
+export function resolveLeaveScope(input: {
+  permissions: string[];
+  level: ApprovalLevel;
+  departmentId: string | null;
+  chargeDepartmentIds?: string[];
+}): DataScope | null {
+  if (
+    input.permissions.includes(PERMISSIONS.LEAVES_MANAGE) ||
+    input.permissions.includes(PERMISSIONS.LEAVES_VIEW)
+  ) {
+    return { kind: "ALL" };
+  }
+  if (input.level === "CEO" || input.level === "CHAIRMAN") {
+    return { kind: "ALL" };
+  }
+  if (input.level === "DD" && input.departmentId) {
+    return {
+      kind: "DEPARTMENT",
+      departmentId: input.departmentId,
+      departmentIds: [
+        ...new Set([input.departmentId, ...(input.chargeDepartmentIds ?? [])]),
+      ],
+    };
+  }
+  return null;
+}
+
+/**
  * Prisma `where` for Employee rows this scope may see.
  * `requestedDepartmentId` is the department filter chosen on a page: it narrows ALL,
  * and for a DD it only narrows within their own departments (a DD can never widen their scope with ?department=).

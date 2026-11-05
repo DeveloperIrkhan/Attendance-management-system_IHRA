@@ -1,5 +1,4 @@
-import { requirePermission } from "@/lib/auth/authorization";
-import { PERMISSIONS } from "@/lib/auth/permissions";
+import { requireLeaveScope } from "@/lib/auth/authorization";
 import { getLeaveBalances } from "@/services/leave.service";
 import LeaveTabs from "@/components/LeaveTabs";
 import ScrollTable from "@/components/ScrollTable";
@@ -11,7 +10,7 @@ export default async function LeaveBalancesPage({
 }: {
   searchParams: SearchParams;
 }) {
-  await requirePermission(PERMISSIONS.LEAVES_MANAGE);
+  const { scope, canManage } = await requireLeaveScope();
   const sp = await searchParams;
 
   const parsed = Number(sp.year);
@@ -19,12 +18,15 @@ export default async function LeaveBalancesPage({
     Number.isInteger(parsed) && parsed >= 2000 && parsed <= 2100
       ? parsed
       : new Date().getFullYear();
-  const { types, employees, usage } = await getLeaveBalances(year);
+  const { types, employees, usage } = await getLeaveBalances(
+    year,
+    scope,
+  );
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Leave balances {year}</h1>
-      <LeaveTabs active="/leaves/balances" />
+      <LeaveTabs active="/leaves/balances" canManage={canManage} />
 
       <form
         method="get"

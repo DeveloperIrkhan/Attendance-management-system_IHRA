@@ -2,14 +2,18 @@ import { cache } from "react";
 import { getSession } from "./session";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { Permission } from "./permissions";
+import { ALL_PERMISSIONS, Permission, PERMISSIONS } from "./permissions";
 import { NextResponse } from "next/server";
 import {
   highestLevel,
   type ApprovalLevel,
   type ApproverIdentity,
 } from "@/lib/leave/approval-routing";
-import { resolveDataScope, type DataScope } from "./data-scope";
+import {
+  resolveDataScope,
+  resolveLeaveScope,
+  type DataScope,
+} from "./data-scope";
 
 // Loads the user fresh from the DB,
 // so deactivation and role changes apply immediately.
@@ -40,6 +44,10 @@ export const getCurrentUser = cache(async () => {
   });
 
   if (!user || !user.isActive) return null;
+  // The Admin role always holds every right, including ones added after the role was seeded.
+  if (user.role.name === "ADMIN") {
+    return { ...user, role: { ...user.role, permissions: [...ALL_PERMISSIONS] } };
+  }
   return user;
 });
 
@@ -102,6 +110,30 @@ export function getDataScope(user: AuthUser): DataScope {
     chargeDepartmentIds:
       user.employee?.additionalCharges.map((c) => c.departmentId) ?? [],
   });
+}
+
+/** Whose leave requests this user may look at, or null when the Leaves pages are not for them. */
+export function getLeaveScope(user: AuthUser): DataScope | null {
+  return resolveLeaveScope({
+    permissions: user.role.permissions,
+    level: effectiveLevel(user),
+    departmentId: user.employee?.departmentId ?? null,
+    chargeDepartmentIds:
+      user.employee?.additionalCharges.map((c) => c.departmentId) ?? [],
+  });
+}
+
+/** For the Leaves pages: HR sees and manages all, CEO/Chairman see all, a DD sees their department. */
+export async function requireLeaveScope() {
+  const user = await requireUser();
+  const scope = getLeaveScope(user);
+  if (!scope) redirect("/unauthorized");
+  return {
+    user,
+    scope,
+    /** HR-style rights: file on behalf of staff, leave types, cancel anything */
+    canManage: hasPermission(user, PERMISSIONS.LEAVES_MANAGE),
+  };
 }
 
 /** For manager views (department / organization data). Plain employees are sent away. */

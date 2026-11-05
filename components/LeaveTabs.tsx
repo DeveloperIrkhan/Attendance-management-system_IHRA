@@ -1,16 +1,23 @@
 import Link from "next/link";
 
 const TABS = [
-  { href: "/leaves", label: "Leave requests" },
-  { href: "/leaves/short", label: "Short leaves" },
-  { href: "/leaves/types", label: "Leave types" },
-  { href: "/leaves/balances", label: "Balances" },
+  { href: "/leaves", label: "Leave requests", managerOnly: false },
+  { href: "/leaves/short", label: "Short leaves", managerOnly: false },
+  { href: "/leaves/types", label: "Leave types", managerOnly: true },
+  { href: "/leaves/balances", label: "Balances", managerOnly: false },
 ];
 
-export default function LeaveTabs({ active }: { active: string }) {
+export default function LeaveTabs({
+  active,
+  canManage = true,
+}: {
+  active: string;
+  /** false for read-only viewers (a DD, CEO, Chairman): leave types are not shown to them */
+  canManage?: boolean;
+}) {
   return (
     <nav className="flex flex-wrap gap-2 border-b pb-3 text-sm">
-      {TABS.map((t) => (
+      {TABS.filter((t) => canManage || !t.managerOnly).map((t) => (
         <Link
           key={t.href}
           href={t.href}

@@ -1,5 +1,4 @@
-import { requirePermission } from "@/lib/auth/authorization";
-import { PERMISSIONS } from "@/lib/auth/permissions";
+import { getApproverIdentity, requireLeaveScope } from "@/lib/auth/authorization";
 import { toIsoDate } from "@/lib/attendance/dates";
 import {
   listEmployeeOptions,
@@ -16,7 +15,7 @@ import LeaveStatusBadge from "@/components/LeaveStatusBadge";
 import LeaveRequestForm from "@/components/LeaveRequestForm";
 import RowActionForm from "@/components/RowActionForm";
 import ScrollTable from "@/components/ScrollTable";
-import { APPROVER_LABEL } from "@/lib/leave/approval-routing";
+import { APPROVER_LABEL, canDecideRequest } from "@/lib/leave/approval-routing";
 type SearchParams = Promise<{ status?: string }>;
 const STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const;
 
@@ -25,23 +24,41 @@ export default async function LeavesPage({
 }: {
   searchParams: SearchParams;
 }) {
-  await requirePermission(PERMISSIONS.LEAVES_MANAGE);
+  // HR (leaves:manage) manages everything. leaves:view, CEO and Chairman read everyone's requests.
+  // A DD reads their own department's requests (plus any additional charge), in every status.
+  const { user, scope, canManage } = await requireLeaveScope();
+  const me = getApproverIdentity(user);
   const sp = await searchParams;
   const status = STATUSES.find((s) => s === sp.status);
 
   const [requests, employees, types] = await Promise.all([
-    listLeaveRequests(status),
-    listEmployeeOptions(),
-    listLeaveTypes(),
+    listLeaveRequests(status, scope),
+    canManage ? listEmployeeOptions() : Promise.resolve([]),
+    canManage ? listLeaveTypes() : Promise.resolve([]),
   ]);
   const activeTypes = types.filter((t) => t.isActive);
-  const stuck = requests.filter(
-    (r) => r.status === "PENDING" && !r.approverLevel,
-  ).length;
+  const stuck = canManage
+    ? requests.filter((r) => r.status === "PENDING" && !r.approverLevel).length
+    : 0;
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Leaves</h1>
+      <div>
+        <h1 className="text-xl font-semibold">
+          {canManage ? "Leaves" : "Leave requests"}
+        </h1>
+        {!canManage && (
+          <p className="text-sm text-zinc-600">
+            {scope.kind === "DEPARTMENT"
+              ? "All leave requests of your department, and of any department you hold additional charge of."
+              : "All leave requests in the organization."}{" "}
+            Read only
+            {me && me.level !== "STAFF"
+              ? ", except the requests that are waiting for your decision."
+              : "."}
+          </p>
+        )}
+      </div>
       {stuck > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
           <span>
@@ -55,8 +72,9 @@ export default async function LeavesPage({
           />
         </div>
       )}
-      <LeaveTabs active="/leaves" />
+      <LeaveTabs active="/leaves" canManage={canManage} />
 
+      {canManage && (
       <details
         className="rounded-md shadow-md bg-white p-4"
         open={requests.length === 0}
@@ -85,6 +103,7 @@ export default async function LeavesPage({
           )}
         </div>
       </details>
+      )}
 
       <form
         method="get"
@@ -117,6 +136,7 @@ export default async function LeavesPage({
           <thead className="sticky top-0 z-10 bg-green-800 text-white text-left">
             <tr>
               <th className="p-3">Employee</th>
+              <th className="p-3">Department</th>
               <th className="p-3">Type</th>
               <th className="p-3">From</th>
               <th className="p-3">To</th>
@@ -130,7 +150,7 @@ export default async function LeavesPage({
           <tbody className="whitespace-nowrap">
             {requests.length === 0 && (
               <tr>
-                <td colSpan={9} className="p-4 text-center text-zinc-500">
+                <td colSpan={10} className="p-4 text-center text-zinc-500">
                   No leave requests.
                 </td>
               </tr>
@@ -143,6 +163,7 @@ export default async function LeavesPage({
                     {r.employee.employeeCode}
                   </span>
                 </td>
+                <td className="p-3">{r.employee.department.name}</td>
                 <td className="p-3">{r.leaveType.name}</td>
                 <td className="p-3">{toIsoDate(r.startDate)}</td>
                 <td className="p-3">{toIsoDate(r.endDate)}</td>
@@ -166,7 +187,26 @@ export default async function LeavesPage({
                   {r.reason ?? ""}
                 </td>
                 <td className="space-x-2 p-3">
-                  {(r.status === "PENDING" || r.status === "APPROVED") && (
+                  {r.status === "PENDING" && canDecideRequest(me, r) && (
+                    <>
+                      <RowActionForm
+                        action={decideLeaveRequestAction}
+                        id={r.id}
+                        label="Approve"
+                        fields={{ decision: "APPROVED" }}
+                      />
+                      <RowActionForm
+                        action={decideLeaveRequestAction}
+                        id={r.id}
+                        label="Reject"
+                        danger
+                        fields={{ decision: "REJECTED" }}
+                        confirmMessage="Reject this request?"
+                      />
+                    </>
+                  )}
+                  {(r.status === "PENDING" || r.status === "APPROVED") &&
+                    (canManage || canDecideRequest(me, r)) && (
                     <RowActionForm
                       action={decideLeaveRequestAction}
                       id={r.id}

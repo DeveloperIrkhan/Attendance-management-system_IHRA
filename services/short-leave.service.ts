@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ServiceError } from "@/lib/action-state";
 import type { LeaveRequestStatus } from "@/lib/generated/prisma/client";
 import { toMinutes } from "@/lib/attendance/attendance-rules";
+import { employeeWhereFor, type DataScope } from "@/lib/auth/data-scope";
 import { monthRange, parseIsoDate } from "@/lib/attendance/dates";
 import type { ShortLeaveInput } from "@/validations/leave.validation";
 import { reprocessEmployeeRange } from "./attendance.service";
@@ -125,9 +126,15 @@ export async function decideShortLeave(
   return updated;
 }
 
-export function listShortLeaves(status?: LeaveRequestStatus) {
+export function listShortLeaves(
+  status: LeaveRequestStatus | undefined,
+  scope: DataScope = { kind: "ALL" },
+) {
   return prisma.shortLeave.findMany({
-    where: status ? { status } : {},
+    where: {
+      ...(status ? { status } : {}),
+      employee: employeeWhereFor(scope),
+    },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     take: 200,
     include: { employee: { select: { name: true, employeeCode: true } } },

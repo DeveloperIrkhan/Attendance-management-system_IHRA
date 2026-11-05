@@ -13,7 +13,8 @@ export type IconKey =
   | "import"
   | "history"
   | "calendar"
-  | "rules";
+  | "rules"
+  | "roles";
 
 export type NavItem = { href: string; label: string; icon: IconKey };
 export type NavSection = { title: string; items: NavItem[] };
@@ -29,6 +30,8 @@ export function buildNav(
     scope?: DataScope;
     /** the account is linked to an employee record */
     hasEmployee?: boolean;
+    /** the Leaves pages are open to this person (HR, leaves:view, DD, CEO, Chairman) */
+    leaveScope?: DataScope | null;
   } = {},
 ): NavSection[] {
   const sees = opts.scope ? opts.scope.kind !== "SELF" : can(P.ATTENDANCE_VIEW);
@@ -38,6 +41,9 @@ export function buildNav(
       : opts.scope?.kind === "SELF"
         ? "My dashboard"
         : "Dashboard";
+  // Personal pages need an employee record. A login without one (Admin, HR or IT staff created
+  // on the Users page) has no attendance or leave of its own to show.
+  const isEmployee = Boolean(opts.hasEmployee);
   const sections: { title: string; items: (NavItem & { show: boolean })[] }[] =
     [
       {
@@ -49,7 +55,8 @@ export function buildNav(
             icon: "dashboard",
             show:
               sees ||
-              can(P.ATTENDANCE_VIEW, P.ATTENDANCE_VIEW_OWN, P.LEAVES_REQUEST),
+              (isEmployee &&
+                can(P.ATTENDANCE_VIEW, P.ATTENDANCE_VIEW_OWN, P.LEAVES_REQUEST)),
           },
           {
             // managers keep their own personal dashboard next to the department / organization one
@@ -108,7 +115,7 @@ export function buildNav(
             href: "/leaves/my",
             label: "My leaves",
             icon: "leaves",
-            show: can(P.LEAVES_REQUEST),
+            show: isEmployee && can(P.LEAVES_REQUEST),
           },
           {
             href: "/leaves/approvals",
@@ -118,21 +125,25 @@ export function buildNav(
           },
           {
             href: "/leaves",
-            label: "Leave management",
+            label: can(P.LEAVES_MANAGE)
+              ? "Leave management"
+              : opts.leaveScope?.kind === "DEPARTMENT"
+                ? "Department leaves"
+                : "All leave requests",
             icon: "leaves",
-            show: can(P.LEAVES_MANAGE),
+            show: can(P.LEAVES_MANAGE) || Boolean(opts.leaveScope),
           },
           {
             href: "/attendance/my",
             label: "My Attendance",
             icon: "daily",
-            show: can(P.ATTENDANCE_VIEW_OWN),
+            show: isEmployee && can(P.ATTENDANCE_VIEW_OWN),
           },
           {
             href: "/leaves/request",
             label: "Request for Leave",
             icon: "daily",
-            show: can(P.LEAVES_REQUEST),
+            show: isEmployee && can(P.LEAVES_REQUEST),
           },
         ],
       },
@@ -179,6 +190,12 @@ export function buildNav(
             label: "Users",
             icon: "employees",
             show: can(P.USERS_MANAGE),
+          },
+          {
+            href: "/roles",
+            label: "Roles",
+            icon: "roles",
+            show: can(P.ROLES_MANAGE),
           },
         ],
       },

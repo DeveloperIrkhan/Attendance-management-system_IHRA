@@ -39,8 +39,8 @@ export function CredentialsBox({
       </dl>
       <p className="text-xs text-amber-800">
         Save or copy this now: it is shown only once and cannot be looked up
-        later. The employee must choose a new password at first sign-in. If it
-        is lost, reset it from the employee page.
+        later. The person must choose a new password at first sign-in. If it
+        is lost, issue a new one from the Users page.
       </p>
       <button
         type="button"

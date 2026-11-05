@@ -8,6 +8,7 @@ import {
   type AuthUser,
 } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
+import { employeeWhereFor, type DataScope } from "@/lib/auth/data-scope";
 import {
   APPROVER_LABEL,
   SHORT_ROUTE_MAX_DAYS,
@@ -675,16 +676,26 @@ export function listMyLeaveRequests(employeeId: string) {
   });
 }
 
-export function listLeaveRequests(status?: LeaveRequestStatus) {
+/** Every request the scope may see, whatever its length, approver or status (not only pending). */
+export function listLeaveRequests(
+  status: LeaveRequestStatus | undefined,
+  scope: DataScope = { kind: "ALL" },
+) {
   return prisma.leaveRequest.findMany({
-    where: status ? { status } : {},
+    where: {
+      ...(status ? { status } : {}),
+      employee: employeeWhereFor(scope),
+    },
     orderBy: [{ createdAt: "desc" }],
     take: 200,
     include: requestInclude,
   });
 }
 
-export async function getLeaveBalances(year: number) {
+export async function getLeaveBalances(
+  year: number,
+  scope: DataScope = { kind: "ALL" },
+) {
   const { start, end } = yearRange(year);
   const [types, employees, grouped] = await Promise.all([
     prisma.leaveType.findMany({
@@ -692,7 +703,7 @@ export async function getLeaveBalances(year: number) {
       orderBy: { name: "asc" },
     }),
     prisma.employee.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...employeeWhereFor(scope) },
       orderBy: { name: "asc" },
       select: { id: true, name: true, employeeCode: true },
     }),
@@ -701,6 +712,7 @@ export async function getLeaveBalances(year: number) {
       where: {
         status: { in: ["APPROVED", "PENDING"] },
         startDate: { gte: start, lt: end },
+        employee: employeeWhereFor(scope),
       },
       _sum: { days: true },
     }),
