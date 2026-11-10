@@ -85,9 +85,26 @@ export default function BarChart({
 
       {labels.map((label, i) => {
         const x = m.l + i * band + (band - barW) / 2;
+        // if (muted?.[i]) {
+        //   const color = mutedColor?.[i];
+
+        //   return (
+        //     <rect
+        //       key={i}
+        //       x={x}
+        //       y={m.t}
+        //       width={barW}
+        //       height={plotH}
+        //       fill={color ?? "#cbd5e1"}
+        //       rx={1}
+        //     >
+        //       <title>{`${label}: ${mutedTitle?.[i] ?? "No attendance expected"}`}</title>
+        //     </rect>
+        //   );
+        // }
         if (muted?.[i]) {
           const color = mutedColor?.[i];
-          const stub = color ? 5 : 5; // a coloured stub is a little taller so it can be seen
+          const stub = color ? 15 : 15; // a coloured stub is a little taller so it can be seen
           return (
             <rect
               key={i}
