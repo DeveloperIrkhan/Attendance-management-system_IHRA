@@ -4,6 +4,7 @@ import {
   CircleCheck,
   CircleX,
   ClipboardList,
+  Clock,
   Pencil,
   Plane,
   Upload,
@@ -12,6 +13,8 @@ import {
   type LucideIcon,
   FingerprintPattern,
   TriangleAlert,
+  FileQuestionMark,
+  LucideFileQuestionMark,
 } from "lucide-react";
 import BarChart from "@/components/charts/BarChart";
 import ChartLegend from "@/components/charts/ChartLegend";
@@ -39,6 +42,8 @@ type Props = {
   greeting: string;
   firstName: string;
   todayIso: string;
+  /** true when a month (or a range / whole year) was picked in the filter */
+  monthSelected?: boolean;
   scopeLabel?: string;
 };
 
@@ -84,6 +89,7 @@ export default function DashboardView({
   greeting,
   firstName,
   todayIso,
+  monthSelected = false,
   scopeLabel,
 }: Props) {
   const iso = toIsoDate(data.date);
@@ -91,17 +97,40 @@ export default function DashboardView({
   const attended = day.present + day.shortLeave + day.halfDay;
   const worksToday = data.dayType === "WORKING" && day.expected > 0;
   const dash = "-";
+  // "Not in yet" belongs to today's summary only, never to a past day.
+  const notInYetDay = iso === todayIso ? data.notInYet : 0;
+  // The donut's ring and centre: processed records plus everyone still to punch in.
+  const donutExpected = day.expected + notInYetDay;
 
   const monthLabel = data.period.label;
   const isMonth = data.period.kind === "month";
   const periodDays =
-    Math.round((data.period.end.getTime() - data.period.start.getTime()) / 86_400_000) + 1;
+    Math.round(
+      (data.period.end.getTime() - data.period.start.getTime()) / 86_400_000,
+    ) + 1;
   // long periods are drawn one bar per month
   const monthly = !isMonth && periodDays > 62;
   const totals = data.monthTotals;
   const totalAttended = totals.present + totals.shortLeave + totals.halfDay;
 
+  // Missing punches: the whole month when one is picked in the filter,
+  // otherwise only the selected day.
+  const missingPunchCount = monthSelected
+    ? data.attention.missingPunches
+    : data.attention.missingPunchesDay;
+  const missingPunchBasis = monthSelected
+    ? `in ${monthLabel}`
+    : `on ${shortDate(data.date)}`;
+
   const attention = [
+    perms.canEditAttendance &&
+      missingPunchCount > 0 && {
+        href: monthSelected
+          ? `/attendance/review?month=${monthParam(data.year, data.month)}`
+          : "/attendance/review",
+        count: missingPunchCount,
+        text: `days with a missing punch ${missingPunchBasis}`,
+      },
     perms.canEditAttendance &&
       data.attention.missingPunches > 0 && {
         href: "/attendance/review",
@@ -180,6 +209,7 @@ export default function DashboardView({
       color: STATUS_COLORS.missing,
     },
     { label: "On leave", value: day.onLeave, color: STATUS_COLORS.leave },
+    { label: "Not in yet", value: notInYetDay, color: STATUS_COLORS.notInYet },
   ];
 
   const overviewSeries = [
@@ -207,6 +237,11 @@ export default function DashboardView({
       name: "On leave",
       color: STATUS_COLORS.leave,
       values: data.series.map((s) => s.leave),
+    },
+    {
+      name: "Not in yet",
+      color: STATUS_COLORS.notInYet,
+      values: data.series.map((s) => s.notInYet),
     },
   ];
 
@@ -297,6 +332,24 @@ export default function DashboardView({
               worksToday
                 ? `${pct(attended, day.expected)} of ${day.expected} expected (${day.present} on time)`
                 : "Not a working day"
+            }
+          />
+          <StatCard
+            tint="yellow"
+            icon={<LucideFileQuestionMark size={22} aria-hidden />}
+            label="Missing punch"
+            value={missingPunchCount}
+            sub={missingPunchBasis}
+          />
+          <StatCard
+            tint="sky"
+            icon={<Clock size={22} aria-hidden />}
+            label="Not in yet Present"
+            value={iso === todayIso ? data.notInYet : dash}
+            sub={
+              iso === todayIso
+                ? "Employees with no punch yet today"
+                : "Counted only on today's view"
             }
           />
           <StatCard
@@ -407,7 +460,9 @@ export default function DashboardView({
               ariaLabel={`Attendance summary for ${iso}`}
               segments={donutSegments}
               centerLabel="Expected"
-              centerValue={worksToday ? day.expected : dash}
+              centerValue={
+                worksToday || notInYetDay > 0 ? donutExpected : dash
+              }
             />
             <ul className="mt-4 space-y-2 text-sm">
               {donutSegments.map((s) => (
@@ -423,9 +478,11 @@ export default function DashboardView({
                     {s.label}
                   </span>
                   <span className="tabular-nums text-slate-600">
-                    {worksToday ? s.value : dash}
+                    {worksToday || notInYetDay > 0 ? s.value : dash}
                     <span className="ml-2 text-xs text-slate-400">
-                      {worksToday ? pct(s.value, day.expected) : ""}
+                      {worksToday || notInYetDay > 0
+                        ? pct(s.value, donutExpected)
+                        : ""}
                     </span>
                   </span>
                 </li>
@@ -543,15 +600,14 @@ export default function DashboardView({
               </div>
             )}
 
-            <div id="attention" className={`${card} bg-green-800! text-white! scroll-mt-24 p-5`}>
+            <div
+              id="attention"
+              className={`${card} bg-green-800! text-white! scroll-mt-24 p-5`}
+            >
               <h2 className={`${cardTitle} mb-3`}>Needs attention</h2>
               {attention.length === 0 ? (
                 <p className="flex items-center gap-2 text-sm text-white">
-                  <CircleCheck
-                    size={16}
-                    className="text-white"
-                    aria-hidden
-                  />
+                  <CircleCheck size={16} className="text-white" aria-hidden />
                   Everything is up to date.
                 </p>
               ) : (

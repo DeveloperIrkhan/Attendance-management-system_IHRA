@@ -9,6 +9,7 @@ import {
   parseMonthParam,
   toIsoDate,
 } from "@/lib/attendance/dates";
+import { officeNow } from "@/lib/attendance/office-clock";
 import { MONTHS } from "@/lib/attendance/months";
 import {
   monthPeriod,
@@ -94,6 +95,8 @@ export type SeriesPoint = {
   absent: number;
   missing: number;
   leave: number;
+  /** employees with no punch yet, only ever set on today's point */
+  notInYet: number;
 };
 
 export type TodayRow = {
@@ -125,6 +128,8 @@ export type DashboardData = {
   hasDayData: boolean;
   totalEmployees: number;
   newThisMonth: number;
+  /** active employees with no punch yet today (shift still running) */
+  notInYet: number;
   day: DayCounts;
   series: SeriesPoint[];
   calendar: Record<string, { tone: DayTone; title: string }>;
@@ -145,7 +150,10 @@ export type DashboardData = {
   }[];
   monthTotals: DayCounts;
   attention: {
+    /** missing punches in the selected month / period */
     missingPunches: number;
+    /** missing punches on the selected day only */
+    missingPunchesDay: number;
     pendingLeaves: number;
     pendingShortLeaves: number;
     unprocessedBatches: number;
@@ -244,6 +252,7 @@ function buildPeriodSeries(
   period: Period,
   perDay: Map<string, DayCounts>,
   calendars: Map<string, Awaited<ReturnType<typeof getMonthCalendar>>>,
+  notInYetToday: { iso: string; count: number },
 ): SeriesPoint[] {
   const days: Date[] = [];
   for (let d = period.start; d <= period.end; d = addDays(d, 1)) days.push(d);
@@ -279,6 +288,7 @@ function buildPeriodSeries(
         absent: c.absent,
         missing: c.missingPunch,
         leave: c.onLeave,
+        notInYet: iso === notInYetToday.iso ? notInYetToday.count : 0,
       };
     });
   }
@@ -299,6 +309,7 @@ function buildPeriodSeries(
         absent: 0,
         missing: 0,
         leave: 0,
+        notInYet: 0,
       };
       byMonth.set(key, point);
     }
@@ -308,6 +319,7 @@ function buildPeriodSeries(
     point.absent += c.absent;
     point.missing += c.missingPunch;
     point.leave += c.onLeave;
+    point.notInYet += toIsoDate(d) === notInYetToday.iso ? notInYetToday.count : 0;
   }
   return [...byMonth.values()];
 }
@@ -364,6 +376,7 @@ export async function getDashboardData(
     monthRows,
     dayRows,
     missingPunches,
+    missingPunchesDay,
     pendingLeaves,
     pendingShortLeaves,
     unprocessedBatches,
@@ -432,11 +445,22 @@ export async function getDashboardData(
       },
     }),
 
-    // Missing punches visible within this scope.
+    // Missing punches visible within this scope, in the selected month / period.
     prisma.attendance.count({
       where: {
         status: "INCOMPLETE",
         isManual: false,
+        date: { gte: period.start, lt: periodEnd },
+        employee,
+      },
+    }),
+
+    // Missing punches on the selected day only.
+    prisma.attendance.count({
+      where: {
+        status: "INCOMPLETE",
+        isManual: false,
+        date,
         employee,
       },
     }),
@@ -532,6 +556,43 @@ export async function getDashboardData(
 
   // Determine working days, weekends, and holidays.
   const dayTypeOf = makeDayTypeResolver(calendar);
+
+  // "Not in yet" employees today: a working day, the shift still running, no
+  // attendance record yet, and no approved leave covering today. Used by the
+  // card (when the selected day is today) and by today's bar in the chart.
+  const { todayMs, minutes } = officeNow();
+  const todayDate = new Date(todayMs);
+  const todayIsoStr = toIsoDate(todayDate);
+  const todayInPeriod = todayDate >= period.start && todayDate <= period.end;
+  let notInYet = 0;
+  if (todayInPeriod && minutes < toMinutes(settings.shiftEnd)) {
+    // Today's own calendar: the loaded month in the month view, otherwise the
+    // month calendars of the custom period.
+    const todayCal =
+      customPeriod && customCalendars
+        ? (customCalendars.get(
+            `${todayDate.getUTCFullYear()}-${todayDate.getUTCMonth() + 1}`,
+          ) ?? calendar)
+        : calendar;
+
+    if (makeDayTypeResolver(todayCal)(todayDate) === "WORKING") {
+      notInYet = await prisma.employee.count({
+        where: {
+          isActive: true,
+          ...employee,
+          OR: [{ joiningDate: null }, { joiningDate: { lte: todayDate } }],
+          attendance: { none: { date: todayDate } },
+          leaveRequests: {
+            none: {
+              status: "APPROVED",
+              startDate: { lte: todayDate },
+              endDate: { gte: todayDate },
+            },
+          },
+        },
+      });
+    }
+  }
 
   // Attendance statistics for each day.
   const perDay = new Map<string, DayCounts>();
@@ -635,6 +696,7 @@ export async function getDashboardData(
       absent: counts.absent,
       missing: counts.missingPunch,
       leave: counts.onLeave,
+      notInYet: iso === todayIsoStr ? notInYet : 0,
     });
 
     const attended = counts.present + counts.shortLeave + counts.halfDay;
@@ -735,10 +797,14 @@ export async function getDashboardData(
     hasDayData: dayRows.length > 0,
     totalEmployees,
     newThisMonth,
+    notInYet,
     day,
     series:
       customPeriod && customCalendars
-        ? buildPeriodSeries(period, periodPerDay, customCalendars)
+        ? buildPeriodSeries(period, periodPerDay, customCalendars, {
+            iso: todayIsoStr,
+            count: notInYet,
+          })
         : series,
     calendar: calendarOut,
     todayRows: todayAll.slice(0, 10),
@@ -754,6 +820,7 @@ export async function getDashboardData(
     monthTotals,
     attention: {
       missingPunches,
+      missingPunchesDay,
       pendingLeaves,
       pendingShortLeaves,
       unprocessedBatches,
@@ -926,6 +993,8 @@ export async function getShellData(want: {
   leaves: boolean;
   /** Leave requests waiting for this person to approve. */
   approvals?: number;
+  /** NOC requests waiting for this person to approve or issue. */
+  nocApprovals?: number;
   imports: boolean;
 }) {
   const [missing, leaves, shorts, lastImport] = await Promise.all([
@@ -960,7 +1029,12 @@ export async function getShellData(want: {
   ]);
 
   return {
-    notifications: missing + leaves + shorts + (want.approvals ?? 0),
+    notifications:
+      missing +
+      leaves +
+      shorts +
+      (want.approvals ?? 0) +
+      (want.nocApprovals ?? 0),
     lastImport,
   };
 }

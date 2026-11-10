@@ -3,6 +3,8 @@ const TINTS = {
   blue: "bg-blue-50 text-blue-600",
   red: "bg-red-50 text-red-600",
   amber: "bg-amber-50 text-amber-600",
+  yellow: "bg-yellow-50 text-yellow-600",
+  sky: "bg-sky-50 text-sky-600",
 } as const;
 
 export default function StatCard({

@@ -1,8 +1,9 @@
 export const STATUS_COLORS = {
-  present: "#006631",
-  late: "#D97706",
-  absent: "#DC2626",
-  missing: "#7C3AED",
-  leave: "#2563EB",
+  present: "#358b0d",
+  late: "#e6c440",
+  absent: "#ff2929",
+  missing: "#0f7efa",
+  leave: "#010d1a",
   holiday: "#741b47",
+  notInYet: "#586068",
 } as const;

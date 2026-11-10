@@ -77,6 +77,7 @@ export default async function DashboardPage({
         todayIso={toIsoDate(
           new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())),
         )}
+        monthSelected={Boolean(sp.month || sp.from || sp.to || sp.year)}
         perms={{
           canImport: hasPermission(user, PERMISSIONS.ATTENDANCE_IMPORT),
           canManageEmployees: hasPermission(user, PERMISSIONS.EMPLOYEES_MANAGE),
