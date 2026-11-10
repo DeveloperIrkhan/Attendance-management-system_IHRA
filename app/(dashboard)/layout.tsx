@@ -1,15 +1,14 @@
+import { getSyncHealthProps } from "@/services/sync-status.service";
 import AppShell from "../../components/shell/AppShell";
 import { buildNav } from "../../components/shell/nav";
-import {
-  getApproverIdentity,
-  getDataScope,
-  getLeaveScope,
-  hasPermission,
-  requireUser,
-} from "../../lib/auth/authorization";
+import { getApproverIdentity, getDataScope, hasPermission, requireUser } from "../../lib/auth/authorization";
 import { Permission, PERMISSIONS } from "../../lib/auth/permissions";
 import { getShellData } from "../../services/dashboard.service";
 import { countPendingForApprover } from "../../services/leave.service";
+import {
+  countNocAwaitingIssue,
+  countPendingNocForApprover,
+} from "../../services/noc.service";
 
 async function AuthShell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -21,9 +20,23 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
   const shell = await getShellData({
     missingPunches: can(PERMISSIONS.ATTENDANCE_EDIT),
     leaves: can(PERMISSIONS.LEAVES_MANAGE),
-    approvals: isApprover ? await countPendingForApprover(user) : 0,
+    // leave requests and NOC requests waiting for this person, plus NOCs HR still has to issue
+    approvals:
+      (isApprover ? await countPendingForApprover(user) : 0) +
+      (isApprover ? await countPendingNocForApprover(user) : 0) +
+      (can(PERMISSIONS.NOC_ISSUE, PERMISSIONS.LEAVES_MANAGE)
+        ? await countNocAwaitingIssue()
+        : 0),
     imports: can(PERMISSIONS.ATTENDANCE_IMPORT, PERMISSIONS.ATTENDANCE_VIEW),
   });
+
+  // Only people who work with attendance see the device sync status.
+  const showSync = can(
+    PERMISSIONS.ATTENDANCE_VIEW,
+    PERMISSIONS.ATTENDANCE_IMPORT,
+    PERMISSIONS.ATTENDANCE_SETTINGS,
+  );
+  const syncHealth = showSync ? await getSyncHealthProps() : null;
 
   return (
     <AppShell
@@ -32,7 +45,6 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
         isApprover,
         scope,
         hasEmployee: Boolean(user.employeeId),
-        leaveScope: getLeaveScope(user),
       })}
       canSearchEmployees={can(PERMISSIONS.EMPLOYEES_VIEW)}
       notifications={shell.notifications}
@@ -41,6 +53,7 @@ async function AuthShell({ children }: { children: React.ReactNode }) {
         PERMISSIONS.ATTENDANCE_IMPORT,
         PERMISSIONS.ATTENDANCE_VIEW,
       )}
+      syncHealth={syncHealth}
     >
       {children}
     </AppShell>

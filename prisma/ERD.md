@@ -96,6 +96,49 @@ erDiagram
   String title
   DateTime createdAt
 }
+"NocRequest" {
+  String id PK
+  String employeeId FK
+  String category
+  String purpose
+  String addressedTo "nullable"
+  DateTime neededBy "nullable"
+  NocStatus status
+  ApprovalLevel approverLevel "nullable"
+  String approverDepartmentId "nullable"
+  String ddDecidedById "nullable"
+  DateTime ddDecidedAt "nullable"
+  String ddNote "nullable"
+  String finalDecidedById "nullable"
+  DateTime finalDecidedAt "nullable"
+  String finalNote "nullable"
+  String rejectedStage "nullable"
+  String issuedById "nullable"
+  DateTime issuedAt "nullable"
+  DateTime createdAt
+  DateTime updatedAt
+}
+"NocDocument" {
+  String id PK
+  String nocRequestId FK,UK
+  String fileName
+  String mimeType
+  Int size
+  Bytes data
+  String uploadedById
+  DateTime uploadedAt
+}
+"SyncStatus" {
+  String id PK
+  DateTime lastAttemptAt "nullable"
+  DateTime lastSuccessAt "nullable"
+  String lastError "nullable"
+  Int consecutiveFailures
+  Int lastRetrieved
+  Int lastInserted
+  Int intervalSeconds
+  DateTime updatedAt
+}
 "DevicePunch" {
   String id PK
   String deviceId
@@ -165,6 +208,8 @@ erDiagram
   Int days
   String decidedById "nullable"
   DateTime decidedAt "nullable"
+  String decisionNote "nullable"
+  Boolean decidedByOverride
   ApprovalLevel approverLevel "nullable"
   String approverDepartmentId "nullable"
   String routeNote "nullable"
@@ -221,6 +266,8 @@ erDiagram
 "Employee" }o--|| "Department" : department
 "Employee" }o--o| "Designation" : designation
 "Attendance" }o--|| "Employee" : employee
+"NocRequest" }o--|| "Employee" : employee
+"NocDocument" |o--|| "NocRequest" : nocRequest
 "ImportBatch" }o--o| "User" : uploadedBy
 "ImportedAttendanceRow" }o--|| "ImportBatch" : importBatch
 "ImportedAttendanceRow" }o--o| "Employee" : employee
@@ -348,6 +395,63 @@ Properties as follows:
 - `title`:
 - `createdAt`:
 
+### `NocRequest`
+
+A request for a No Objection Certificate: employee, then department DD, then CEO (yes / no),
+then HR / Admin issue the document.
+
+Properties as follows:
+
+- `id`:
+- `employeeId`:
+- `category`:
+- `purpose`:
+- `addressedTo`:
+- `neededBy`:
+- `status`:
+- `approverLevel`:
+- `approverDepartmentId`:
+- `ddDecidedById`:
+- `ddDecidedAt`:
+- `ddNote`:
+- `finalDecidedById`:
+- `finalDecidedAt`:
+- `finalNote`:
+- `rejectedStage`:
+- `issuedById`:
+- `issuedAt`:
+- `createdAt`:
+- `updatedAt`:
+
+### `NocDocument`
+
+The NOC file itself, kept in the database so it works on any host.
+
+Properties as follows:
+
+- `id`:
+- `nocRequestId`:
+- `fileName`:
+- `mimeType`:
+- `size`:
+- `data`:
+- `uploadedById`:
+- `uploadedAt`:
+
+### `SyncStatus`
+
+Properties as follows:
+
+- `id`:
+- `lastAttemptAt`:
+- `lastSuccessAt`:
+- `lastError`:
+- `consecutiveFailures`:
+- `lastRetrieved`:
+- `lastInserted`:
+- `intervalSeconds`:
+- `updatedAt`:
+
 ### `DevicePunch`
 
 Properties as follows:
@@ -435,6 +539,8 @@ Properties as follows:
 - `days`:
 - `decidedById`:
 - `decidedAt`:
+- `decisionNote`:
+- `decidedByOverride`:
 - `approverLevel`:
 - `approverDepartmentId`:
 - `routeNote`:

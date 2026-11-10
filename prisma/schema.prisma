@@ -70,6 +70,7 @@ model Employee {
   additionalCharges DepartmentCharge[]
   // acting CEO / Chairman while the post is vacant
   actingApprovals   ActingApprover[]
+  nocRequests       NocRequest[]
   user          User?
   createdAt     DateTime                @default(now())
   updatedAt     DateTime                @updatedAt
@@ -145,6 +146,76 @@ model Holiday {
   date      DateTime @unique @db.Date
   title     String
   createdAt DateTime @default(now())
+}
+
+/// Heartbeat of the device sync script: one row per device, updated after every round.
+enum NocStatus {
+  PENDING_DD // waiting for the department DD
+  PENDING_FINAL // waiting for the CEO (the Chairman, for a CEO's own request)
+  APPROVED // CEO said yes: HR / Admin upload the NOC document
+  ISSUED // the document was uploaded
+  REJECTED
+  CANCELLED
+}
+
+/// A request for a No Objection Certificate: employee, then department DD, then CEO (yes / no),
+/// then HR / Admin issue the document.
+model NocRequest {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  category    String
+  purpose     String
+  addressedTo String?
+  neededBy    DateTime? @db.Date
+  status      NocStatus @default(PENDING_DD)
+
+  // who the request is waiting for
+  approverLevel        ApprovalLevel?
+  approverDepartmentId String?
+
+  ddDecidedById    String?
+  ddDecidedAt      DateTime?
+  ddNote           String?
+  finalDecidedById String?
+  finalDecidedAt   DateTime?
+  finalNote        String?
+  rejectedStage    String? // "DD" or "FINAL"
+
+  issuedById String?
+  issuedAt   DateTime?
+
+  document  NocDocument?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+}
+
+/// The NOC file itself, kept in the database so it works on any host.
+model NocDocument {
+  id           String     @id @default(cuid())
+  nocRequestId String     @unique
+  nocRequest   NocRequest @relation(fields: [nocRequestId], references: [id], onDelete: Cascade)
+  fileName     String
+  mimeType     String
+  size         Int
+  data         Bytes
+  uploadedById String
+  uploadedAt   DateTime   @default(now())
+}
+
+model SyncStatus {
+  id                  String    @id // the device id, e.g. "uface800-main"
+  lastAttemptAt       DateTime?
+  lastSuccessAt       DateTime?
+  lastError           String?
+  consecutiveFailures Int       @default(0)
+  lastRetrieved       Int       @default(0)
+  lastInserted        Int       @default(0)
+  intervalSeconds     Int       @default(60)
+  updatedAt           DateTime  @updatedAt
 }
 
 model DevicePunch {
@@ -245,6 +316,8 @@ model LeaveRequest {
 
   decidedById String?
   decidedAt   DateTime?
+  decisionNote       String? // why, when HR decides instead of the designated approver
+  decidedByOverride  Boolean @default(false) // decided by HR, not by the routed approver
 
   // Approval routing, fixed when the request is created.
   approverLevel        ApprovalLevel?

@@ -14,7 +14,7 @@ export type IconKey =
   | "history"
   | "calendar"
   | "rules"
-  | "roles";
+  | "noc";
 
 export type NavItem = { href: string; label: string; icon: IconKey };
 export type NavSection = { title: string; items: NavItem[] };
@@ -30,8 +30,6 @@ export function buildNav(
     scope?: DataScope;
     /** the account is linked to an employee record */
     hasEmployee?: boolean;
-    /** the Leaves pages are open to this person (HR, leaves:view, DD, CEO, Chairman) */
-    leaveScope?: DataScope | null;
   } = {},
 ): NavSection[] {
   const sees = opts.scope ? opts.scope.kind !== "SELF" : can(P.ATTENDANCE_VIEW);
@@ -41,9 +39,6 @@ export function buildNav(
       : opts.scope?.kind === "SELF"
         ? "My dashboard"
         : "Dashboard";
-  // Personal pages need an employee record. A login without one (Admin, HR or IT staff created
-  // on the Users page) has no attendance or leave of its own to show.
-  const isEmployee = Boolean(opts.hasEmployee);
   const sections: { title: string; items: (NavItem & { show: boolean })[] }[] =
     [
       {
@@ -55,8 +50,7 @@ export function buildNav(
             icon: "dashboard",
             show:
               sees ||
-              (isEmployee &&
-                can(P.ATTENDANCE_VIEW, P.ATTENDANCE_VIEW_OWN, P.LEAVES_REQUEST)),
+              can(P.ATTENDANCE_VIEW, P.ATTENDANCE_VIEW_OWN, P.LEAVES_REQUEST),
           },
           {
             // managers keep their own personal dashboard next to the department / organization one
@@ -115,7 +109,7 @@ export function buildNav(
             href: "/leaves/my",
             label: "My leaves",
             icon: "leaves",
-            show: isEmployee && can(P.LEAVES_REQUEST),
+            show: can(P.LEAVES_REQUEST),
           },
           {
             href: "/leaves/approvals",
@@ -125,25 +119,44 @@ export function buildNav(
           },
           {
             href: "/leaves",
-            label: can(P.LEAVES_MANAGE)
-              ? "Leave management"
-              : opts.leaveScope?.kind === "DEPARTMENT"
-                ? "Department leaves"
-                : "All leave requests",
+            label: "Leave management",
             icon: "leaves",
-            show: can(P.LEAVES_MANAGE) || Boolean(opts.leaveScope),
+            show: can(P.LEAVES_MANAGE),
           },
           {
             href: "/attendance/my",
             label: "My Attendance",
             icon: "daily",
-            show: isEmployee && can(P.ATTENDANCE_VIEW_OWN),
+            show: can(P.ATTENDANCE_VIEW_OWN),
           },
           {
             href: "/leaves/request",
             label: "Request for Leave",
             icon: "daily",
-            show: isEmployee && can(P.LEAVES_REQUEST),
+            show: can(P.LEAVES_REQUEST),
+          },
+        ],
+      },
+      {
+        title: "NOC",
+        items: [
+          {
+            href: "/noc/my",
+            label: "My NOC requests",
+            icon: "noc",
+            show: Boolean(opts.hasEmployee),
+          },
+          {
+            href: "/noc/approvals",
+            label: "NOC approvals",
+            icon: "noc",
+            show: Boolean(opts.isApprover),
+          },
+          {
+            href: "/noc/issue",
+            label: "Issue NOC",
+            icon: "noc",
+            show: can(P.NOC_ISSUE, P.LEAVES_MANAGE),
           },
         ],
       },
@@ -190,12 +203,6 @@ export function buildNav(
             label: "Users",
             icon: "employees",
             show: can(P.USERS_MANAGE),
-          },
-          {
-            href: "/roles",
-            label: "Roles",
-            icon: "roles",
-            show: can(P.ROLES_MANAGE),
           },
         ],
       },

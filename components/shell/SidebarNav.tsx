@@ -8,9 +8,9 @@ import {
   Calendar,
   CalendarCheck,
   CalendarDays,
+  FileCheck,
   History,
   LayoutDashboard,
-  ShieldCheck,
   SlidersHorizontal,
   Table2,
   TriangleAlert,
@@ -33,7 +33,7 @@ const ICONS: Record<IconKey, LucideIcon> = {
   history: History,
   calendar: Calendar,
   rules: SlidersHorizontal,
-  roles: ShieldCheck,
+  noc: FileCheck,
 };
 
 export default function SidebarNav({

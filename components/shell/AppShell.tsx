@@ -10,11 +10,14 @@ import {
   User,
 } from "lucide-react";
 import SidebarNav from "./SidebarNav";
+import {
+  SyncHealthBadge,
+  SyncHealthBanner,
+  type SyncHealthProps,
+} from "./SyncHealth";
 import type { NavSection } from "./nav";
 import { MONTHS } from "@/lib/attendance/months";
-import LogoutButton from "../LogoutButton";
 import Image from "next/image";
-import LogoutMenu from "../LogoutMenu";
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
@@ -26,6 +29,8 @@ type Props = {
   notifications: number;
   lastImport: { month: number; year: number; status: string } | null;
   canViewImports: boolean;
+  /** the device sync heartbeat, for people who work with attendance; null hides it */
+  syncHealth?: SyncHealthProps | null;
   children: React.ReactNode;
 };
 
@@ -53,6 +58,7 @@ export default function AppShell({
   notifications,
   lastImport,
   canViewImports,
+  syncHealth,
   children,
 }: Props) {
   const importLabel = lastImport
@@ -169,6 +175,7 @@ export default function AppShell({
             <div className="flex-1 sm:hidden" />
 
             <div ref={ref} className="ml-auto flex items-center gap-3">
+              {syncHealth && <SyncHealthBadge {...syncHealth} />}
               <Link
                 href="/dashboard#attention"
                 aria-label={
@@ -260,6 +267,8 @@ export default function AppShell({
           </div>
           <SidebarNav sections={sections} orientation="horizontal" />
         </header>
+
+        {syncHealth && <SyncHealthBanner {...syncHealth} />}
 
         <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
       </div>
