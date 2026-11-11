@@ -15,6 +15,12 @@ export type SyncHealthProps = {
   row: SyncRow | null;
   /** the server's time when the page was built, so the first paint matches the server */
   serverNow: number;
+  /**
+   * Whether the device sync actually runs on this deployment. False on a hosted copy (Vercel)
+   * that only reads a database synced elsewhere: there is no device to reach, so a stale
+   * heartbeat is expected and must not be reported as a failure.
+   */
+  live: boolean;
 };
 
 const DOT: Record<SyncState, string> = {
@@ -45,6 +51,29 @@ function useSyncHealth({ row, serverNow }: SyncHealthProps) {
 /** Small status pill for the header: a coloured dot and how long ago the device was last read. */
 export function SyncHealthBadge(props: SyncHealthProps) {
   const health = useSyncHealth(props);
+
+  // Hosted copy: the device is not reachable from here, so only report the age of the data.
+  if (!props.live) {
+    const text =
+      health.minutesSince === null
+        ? "No synced data yet"
+        : `Synced ${describeAge(health.minutesSince)}`;
+    return (
+      <span
+        title={`Showing saved attendance data. ${
+          health.minutesSince === null
+            ? "No device sync has reported yet."
+            : `Last device sync: ${describeAge(health.minutesSince)}.`
+        } Live syncing runs on the office computer.`}
+        role="status"
+        className="hidden items-center gap-2 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-600 md:inline-flex"
+      >
+        <span className="h-2 w-2 rounded-full bg-zinc-400" aria-hidden />
+        <span>{text}</span>
+      </span>
+    );
+  }
+
   const detail =
     health.state === "never"
       ? "the sync has not reported yet"
@@ -73,6 +102,25 @@ export function SyncHealthBadge(props: SyncHealthProps) {
 /** A red bar across the page when the sync has stopped: new punches are not arriving. */
 export function SyncHealthBanner(props: SyncHealthProps) {
   const health = useSyncHealth(props);
+
+  // Hosted copy: never call it "stopped" (nothing here is supposed to reach the device).
+  // A calm line at the top says which data is on screen; fresh data needs no message at all.
+  if (!props.live) {
+    if (health.state === "ok") return null;
+    return (
+      <div
+        role="status"
+        className="border-b border-zinc-200 bg-zinc-50 px-4 py-2 text-sm text-zinc-600 sm:px-6"
+      >
+        Showing saved attendance data.{" "}
+        {health.minutesSince === null
+          ? "No device sync has reported yet."
+          : `Last device sync: ${describeAge(health.minutesSince)}.`}{" "}
+        Live syncing runs on the office computer.
+      </div>
+    );
+  }
+
   if (health.state !== "down") return null;
 
   return (

@@ -79,11 +79,22 @@ export async function getSyncRow(): Promise<
   };
 }
 
+/** Does the device sync run on this machine? A Vercel deployment only reads a database synced elsewhere. */
+export function syncRunsHere(): boolean {
+  const mode = process.env.SYNC_HEALTH_MODE?.trim().toLowerCase();
+  if (mode === "snapshot" || mode === "readonly" || mode === "display") {
+    return false;
+  }
+  if (mode === "live") return true;
+  return !process.env.VERCEL;
+}
+
 /** What the header badge needs: the heartbeat and the server's clock at this moment. */
 export async function getSyncHealthProps() {
   const serverNow = Date.now();
+  const live = syncRunsHere();
   try {
-    return { row: await getSyncRow(), serverNow };
+    return { row: await getSyncRow(), serverNow, live };
   } catch (error) {
     // The heartbeat is only decorative: never let it take the dashboard down. If the table is
     // missing or unreachable, the badge shows "not started" and the saved attendance stays visible.
@@ -91,6 +102,6 @@ export async function getSyncHealthProps() {
       "Could not read the device sync heartbeat:",
       error instanceof Error ? error.message : error,
     );
-    return { row: null, serverNow };
+    return { row: null, serverNow, live };
   }
 }
