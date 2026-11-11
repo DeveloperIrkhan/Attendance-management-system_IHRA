@@ -1,5 +1,6 @@
+import {isPermission, Permission } from "@/lib/auth/permissions";
 import { z } from "zod";
-import { isPermission, type Permission } from "@/lib/auth/permissions";
+// import { isPermission, type Permission } from "@/lib/auth/permissions";
 
 export const roleSchema = z.object({
   name: z
