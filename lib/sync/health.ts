@@ -85,3 +85,6 @@ export const SYNC_STATE_TEXT: Record<SyncState, string> = {
   down: "Device sync: stopped",
   never: "Device sync: not started",
 };
+
+
+
