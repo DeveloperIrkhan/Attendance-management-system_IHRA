@@ -4,6 +4,10 @@ import { ZKTecoClient } from "@graphland/zkteco";
 import { prisma } from "../lib/prisma";
 import { processDevicePunches } from "../services/device-attendance.service";
 import {
+  recordSyncFailure,
+  recordSyncSuccess,
+} from "../services/sync-status.service";
+import {
   parseDeviceTimeMode,
   toOfficeClock,
 } from "../lib/attendance/office-clock";
@@ -141,6 +145,14 @@ async function syncOnce() {
     // ends: employees who never punched become Absent, and a lone check-in turns into Missing punch.
     await processDevicePunches(attendanceInitialized ? { sinceDays: 2 } : {});
     attendanceInitialized = true;
+
+    // Tell the web app this round succeeded (drives the header status badge).
+    await recordSyncSuccess(
+      DEVICE_ID,
+      records.length,
+      inserted,
+      Math.round(POLL_INTERVAL_MS / 1000),
+    );
   } finally {
     if (connected) {
       await client.disconnect();
@@ -163,6 +175,16 @@ async function poll() {
     await syncOnce();
   } catch (error) {
     console.error("uFace800 sync failed:", error);
+    // Record the failure so the badge turns amber/red with the real reason.
+    try {
+      await recordSyncFailure(
+        DEVICE_ID,
+        error instanceof Error ? error.message : String(error),
+        Math.round(POLL_INTERVAL_MS / 1000),
+      );
+    } catch (heartbeatError) {
+      console.error("Could not record sync failure:", heartbeatError);
+    }
   } finally {
     running = false;
   }
