@@ -30,8 +30,9 @@ const ms = (v: Date | string | null): number | null => {
 /**
  * ok       a sync finished within about 2.5 poll intervals (at least 3 minutes)
  * delayed  longer than that, but under 6 intervals (at least 10 minutes)
- * down     longer than that, or it never succeeded and has failed
- * never    no heartbeat at all yet (the script was never started)
+ * down     longer than that
+ * never    it has never succeeded (the script was never started, or the device was never
+ *          reachable); the last error, if any, is still available for the tooltip
  */
 export function evaluateSyncHealth(
   row: SyncRow | null,
@@ -48,7 +49,7 @@ export function evaluateSyncHealth(
   const success = ms(row.lastSuccessAt);
   if (success === null) {
     return {
-      state: row.consecutiveFailures > 0 ? "down" : "never",
+      state: "never",
       minutesSince: null,
       lastSuccessAt: null,
       lastError: row.lastError,

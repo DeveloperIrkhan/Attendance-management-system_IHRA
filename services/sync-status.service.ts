@@ -81,5 +81,16 @@ export async function getSyncRow(): Promise<
 
 /** What the header badge needs: the heartbeat and the server's clock at this moment. */
 export async function getSyncHealthProps() {
-  return { row: await getSyncRow(), serverNow: Date.now() };
+  const serverNow = Date.now();
+  try {
+    return { row: await getSyncRow(), serverNow };
+  } catch (error) {
+    // The heartbeat is only decorative: never let it take the dashboard down. If the table is
+    // missing or unreachable, the badge shows "not started" and the saved attendance stays visible.
+    console.warn(
+      "Could not read the device sync heartbeat:",
+      error instanceof Error ? error.message : error,
+    );
+    return { row: null, serverNow };
+  }
 }
