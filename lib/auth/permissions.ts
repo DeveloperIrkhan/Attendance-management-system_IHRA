@@ -10,6 +10,7 @@ export const PERMISSIONS = {
   ATTENDANCE_SETTINGS: "attendance:settings",
   ATTENDANCE_EDIT: "attendance:edit",
   LEAVES_MANAGE: "leaves:manage", // HR: file on behalf of staff, see everything, cancel
+  LEAVES_VIEW: "leaves:view", // see every leave request and balance, read only
   LEAVES_REQUEST: "leaves:request", // apply for own leave
   // Approving leave is not a role permission: it follows the designation's approval level
   // (DD, CEO, Chairman), see lib/leave/approval-routing.ts.
@@ -24,6 +25,81 @@ export const PERMISSIONS = {
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS) as Permission[];
+
+export function isPermission(value: string): value is Permission {
+  return (ALL_PERMISSIONS as string[]).includes(value);
+}
+
+/** Labels for the Roles screen, grouped so the checkboxes are easy to read. */
+export const PERMISSION_GROUPS: {
+  title: string;
+  items: { key: Permission; label: string; hint?: string }[];
+}[] = [
+  {
+    title: "People",
+    items: [
+      { key: "employees:view", label: "View all employees" },
+      { key: "employees:manage", label: "Add and edit employees" },
+      { key: "departments:manage", label: "Manage departments and designations" },
+    ],
+  },
+  {
+    title: "Attendance",
+    items: [
+      {
+        key: "attendance:view",
+        label: "View attendance of the whole organization",
+        hint: "Also gives the organization-wide dashboard.",
+      },
+      { key: "attendance:view-own", label: "View own attendance" },
+      { key: "attendance:import", label: "Import biometric Excel sheets" },
+      { key: "attendance:edit", label: "Correct attendance records" },
+      { key: "attendance:settings", label: "Change attendance rules and calendar" },
+    ],
+  },
+  {
+    title: "Leaves",
+    items: [
+      {
+        key: "leaves:manage",
+        label: "Manage leaves",
+        hint: "File on behalf of staff, cancel, leave types, balances.",
+      },
+      {
+        key: "leaves:view",
+        label: "View all leave requests (read only)",
+        hint: "Without this, a DD still sees their own department, and CEO / Chairman see everyone, by designation.",
+      },
+      { key: "leaves:request", label: "Apply for own leave" },
+    ],
+  },
+  {
+    title: "NOC",
+    items: [
+      {
+        key: "noc:issue",
+        label: "Issue NOC documents",
+        hint: "Upload the signed document for approved requests. HR and Admin have this.",
+      },
+    ],
+  },
+  {
+    title: "Reports",
+    items: [
+      { key: "reports:view", label: "View reports" },
+      { key: "reports:export", label: "Export reports" },
+    ],
+  },
+  {
+    title: "Administration",
+    items: [
+      { key: "users:manage", label: "Manage users" },
+      { key: "roles:manage", label: "Manage roles and permissions" },
+      { key: "backup:manage", label: "Manage backups" },
+      { key: "audit:view", label: "View audit log" },
+    ],
+  },
+];
 
 const P = PERMISSIONS;
 
