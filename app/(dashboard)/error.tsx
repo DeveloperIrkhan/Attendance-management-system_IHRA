@@ -1,14 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-
-/**
- * Shown inside the app shell when a page under (dashboard) throws.
- *
- * The layout (sidebar, header, sync status line) is outside this boundary and keeps
- * rendering, so a database problem on one page no longer replaces the whole app with
- * "This page couldn't load". `retry` re-renders just this segment.
- */
 export default function DashboardError({
   error,
   retry,

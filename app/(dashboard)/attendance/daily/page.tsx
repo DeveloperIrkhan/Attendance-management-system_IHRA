@@ -324,7 +324,7 @@ export default async function DailyAttendancePage({
               </tr>
             )}
             {viewRows.map((r, i) => (
-              <tr key={r.key} className="border-t align-top">
+              <tr key={r.key} className="border-t align-center">
                 <td className="p-3 tabular-nums text-zinc-500">
                   {(page - 1) * DAILY_PAGE_SIZE + i + 1}
                 </td>

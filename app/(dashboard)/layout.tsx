@@ -9,12 +9,6 @@ import {
   countNocAwaitingIssue,
   countPendingNocForApprover,
 } from "../../services/noc.service";
-
-/**
- * The shell's extras (badge counts, last import) are decoration. A failing count must not
- * replace every dashboard page with a server error, so each one falls back to nothing and
- * is logged for the server logs instead.
- */
 async function safe<T>(
   label: string,
   fallback: T,

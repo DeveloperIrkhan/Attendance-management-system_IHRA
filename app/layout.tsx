@@ -8,7 +8,7 @@ const playfairDisplayHeading = Playfair_Display({subsets:['latin'],variable:'--f
 const notoSans = Noto_Sans({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: "Attendance System",
+  title: "IHRA Attendance System",
   description: "Attendance management system",
 };
 
