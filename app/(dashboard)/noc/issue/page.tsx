@@ -4,6 +4,7 @@ import { canIssueNoc } from "@/lib/auth/permissions";
 import { toIsoDate } from "@/lib/attendance/dates";
 import NocStatusBadge from "@/components/NocStatusBadge";
 import NocUploadForm from "@/components/NocUploadForm";
+import DownloadButton from "@/components/toast/DownloadButton";
 import type { NocApproverLevel, NocStatus } from "@/lib/noc/flow";
 import { listNocForIssuers } from "@/services/noc.service";
 
@@ -118,12 +119,12 @@ export default async function IssueNocPage({
                   {r.status === "APPROVED" && <NocUploadForm id={r.id} label="Upload NOC" />}
                   {r.status === "ISSUED" && r.document && (
                     <div className="space-y-2">
-                      <a
+                      <DownloadButton
                         href={`/api/noc/${r.id}/document`}
+                        name="NOC"
+                        label={r.document.fileName}
                         className="text-green-800 underline"
-                      >
-                        {r.document.fileName}
-                      </a>
+                      />
                       <NocUploadForm id={r.id} label="Replace file" />
                     </div>
                   )}

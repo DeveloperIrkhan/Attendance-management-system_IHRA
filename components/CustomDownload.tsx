@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { downloadWithToast } from "@/components/toast/download-with-toast";
+import { notifyError } from "@/components/toast/Toaster";
+import Spinner from "@/components/Spinner";
 
 type Props = {
   /** the report's own query string (type, month, department, employees ...), without format */
@@ -39,6 +42,7 @@ export default function CustomDownload({ baseQuery, columns, storageKey }: Props
     loadSelection(storageKey, columns),
   );
   const [format, setFormat] = useState<Format>("pdf");
+  const [downloading, setDownloading] = useState(false);
 
   const count = selected.filter(Boolean).length;
 
@@ -46,7 +50,10 @@ export default function CustomDownload({ baseQuery, columns, storageKey }: Props
     setSelected((prev) => prev.map((on, j) => (j === i ? !on : on)));
 
   const download = () => {
-    if (count === 0) return;
+    if (count === 0) {
+      notifyError("Choose at least one column.");
+      return;
+    }
     const query = new URLSearchParams(baseQuery);
     query.set("format", format);
     // every column ticked = the normal download
@@ -64,11 +71,12 @@ export default function CustomDownload({ baseQuery, columns, storageKey }: Props
     } catch {
       // saving the choice is a convenience only
     }
-    window.location.assign(`/api/reports?${query.toString()}`);
+    void downloadWithToast(`/api/reports?${query.toString()}`, "Report", setDownloading);
   };
 
   return (
     <div className="relative">
+      {downloading && <Spinner />}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -148,7 +156,7 @@ export default function CustomDownload({ baseQuery, columns, storageKey }: Props
             <button
               type="button"
               onClick={download}
-              disabled={count === 0}
+              disabled={count === 0 || downloading}
               className="green-button hoverEffect disabled:cursor-not-allowed disabled:opacity-50"
             >
               Download

@@ -2,6 +2,8 @@
 
 import { startTransition, useActionState, useEffect, useRef } from "react";
 import type { ActionState } from "@/lib/action-state";
+import { useActionToast } from "@/components/toast/use-action-toast";
+import Spinner from "./Spinner";
 
 type Option = { id: string; label: string };
 
@@ -25,6 +27,7 @@ export default function ShortLeaveForm({
     {} as ActionState,
   );
   const formRef = useRef<HTMLFormElement>(null);
+  useActionToast(state, "Short leave saved.");
 
   useEffect(() => {
     if (state.ok) formRef.current?.reset();
@@ -38,6 +41,7 @@ export default function ShortLeaveForm({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="max-w-2xl space-y-4">
+      {pending && <Spinner />}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1 sm:col-span-2">
           <label className="text-sm font-medium">Employee</label>

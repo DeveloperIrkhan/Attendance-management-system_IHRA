@@ -2,6 +2,8 @@
 
 import { startTransition, useActionState } from "react";
 import type { ActionState } from "@/lib/action-state";
+import { useActionToast } from "@/components/toast/use-action-toast";
+import Spinner from "./Spinner";
 
 type Props = {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
@@ -13,6 +15,7 @@ type Props = {
 /** Yes or No on a NOC request, with an optional note kept with the answer. */
 export default function NocDecisionForm({ action, id, who }: Props) {
   const [state, formAction, pending] = useActionState(action, {} as ActionState);
+  useActionToast(state, "NOC request updated.");
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -25,6 +28,7 @@ export default function NocDecisionForm({ action, id, who }: Props) {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-2">
+      {pending && <Spinner />}
       <input type="hidden" name="id" value={id} />
       <input
         name="note"

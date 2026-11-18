@@ -2,6 +2,8 @@
 
 import { ActionState } from "@/lib/action-state";
 import { startTransition, useActionState } from "react";
+import { useActionToast } from "@/components/toast/use-action-toast";
+import Spinner from "./Spinner";
 
 type Props = {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
@@ -21,6 +23,7 @@ export default function RowActionForm({
   danger,
 }: Props) {
   const [state, formAction, pending] = useActionState(action, {} as ActionState);
+  useActionToast(state, "Action completed.");
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,6 +34,7 @@ export default function RowActionForm({
 
   return (
     <form onSubmit={onSubmit} className="inline">
+      {pending && <Spinner />}
       <input type="hidden" name="id" value={id} />
       {Object.entries(fields ?? {}).map(([k, v]) => (
         <input key={k} type="hidden" name={k} value={v} />

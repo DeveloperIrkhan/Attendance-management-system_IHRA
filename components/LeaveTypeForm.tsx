@@ -2,6 +2,8 @@
 
 import { startTransition, useActionState, useEffect, useRef } from "react";
 import type { ActionState } from "@/lib/action-state";
+import { useActionToast } from "@/components/toast/use-action-toast";
+import Spinner from "./Spinner";
 
 type Props = {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
@@ -23,6 +25,7 @@ export default function LeaveTypeForm({
     {} as ActionState,
   );
   const formRef = useRef<HTMLFormElement>(null);
+  useActionToast(state, "Leave type saved.");
 
   useEffect(() => {
     if (state.ok && resetOnSuccess) formRef.current?.reset();
@@ -36,6 +39,7 @@ export default function LeaveTypeForm({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="space-y-3">
+      {pending && <Spinner />}
       {id && <input type="hidden" name="id" value={id} />}
       <div className="space-y-1">
         <label className="text-sm font-medium">Name</label>

@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requirePermission } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { toActionError, type ActionState } from "@/lib/action-state";
@@ -25,5 +24,6 @@ export async function correctAttendanceAction(
   revalidatePath("/attendance/review");
   revalidatePath("/attendance/daily");
   revalidatePath("/attendance/monthly");
-  redirect("/attendance/review"); // must stay outside try/catch
+  // Return instead of redirecting: the form shows the success toast, then navigates.
+  return { ok: true, message: "Attendance corrected." };
 }

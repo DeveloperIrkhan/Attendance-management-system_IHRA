@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "react-toastify";
+import { notifyError, notifySuccess } from "@/components/toast/Toaster";
 import Spinner from "../../../components/Spinner";
 
 export default function LoginPage() {
@@ -25,15 +25,15 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Login failed");
-        toast.error(data.error ?? "login fails!");
+        notifyError(data.error ?? "Login failed.");
         return;
       }
-      toast.success("login successfull!");
-      console.log("Login successful:", data.redirectTo);
+      notifySuccess("Login successful.");
       router.replace(data.redirectTo ?? "/Dashboard");
       router.refresh();
     } catch {
       setError("Network error. Please try again.");
+      notifyError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }

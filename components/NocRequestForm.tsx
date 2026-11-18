@@ -3,6 +3,8 @@
 import { startTransition, useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { ActionState } from "@/lib/action-state";
+import { useActionToast } from "@/components/toast/use-action-toast";
+import Spinner from "./Spinner";
 import { NOC_CATEGORIES } from "@/lib/noc/flow";
 
 type Props = {
@@ -15,6 +17,7 @@ const input = "block w-full rounded border border-zinc-400 px-3 py-2 text-sm";
 export default function NocRequestForm({ action }: Props) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(action, {} as ActionState);
+  useActionToast(state, "NOC request sent.");
 
   useEffect(() => {
     if (state.ok) router.push("/noc/my");
@@ -28,6 +31,7 @@ export default function NocRequestForm({ action }: Props) {
 
   return (
     <form onSubmit={onSubmit} className="max-w-xl space-y-4">
+      {pending && <Spinner />}
       <div className="space-y-1">
         <label htmlFor="noc-category" className="text-sm font-medium">
           What is the NOC for?

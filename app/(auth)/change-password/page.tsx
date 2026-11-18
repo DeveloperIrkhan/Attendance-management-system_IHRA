@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { notifyError, notifySuccess } from "@/components/toast/Toaster";
+import Spinner from "@/components/Spinner";
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -23,13 +25,17 @@ export default function ChangePasswordPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Could not change password");
+        const message = data.error ?? data.message ?? "Could not change password.";
+        setError(message);
+        notifyError(message);
         return;
       }
+      notifySuccess("Password changed.");
       router.replace("/home");
       router.refresh();
     } catch {
       setError("Network error. Please try again.");
+      notifyError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -43,6 +49,7 @@ export default function ChangePasswordPage() {
         onSubmit={onSubmit}
         className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow-sm"
       >
+        {loading && <Spinner />}
         <h1 className="text-xl font-semibold">Change password</h1>
         {error && (
           <div className="rounded bg-red-50 p-2 text-sm text-red-700">

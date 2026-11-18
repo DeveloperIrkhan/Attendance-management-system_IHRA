@@ -2,6 +2,8 @@
 
 import { startTransition, useActionState } from "react";
 import type { ActionState } from "@/lib/action-state";
+import { useActionToast } from "@/components/toast/use-action-toast";
+import Spinner from "./Spinner";
 
 const DAYS: { value: number; label: string }[] = [
   { value: 1, label: "Monday" },
@@ -22,6 +24,7 @@ type Props = {
 
 export default function WeeklyOffForm({ action, year, month, selected }: Props) {
   const [state, formAction, pending] = useActionState(action, {} as ActionState);
+  useActionToast(state, "Weekly off days saved.");
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,6 +34,7 @@ export default function WeeklyOffForm({ action, year, month, selected }: Props) 
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
+      {pending && <Spinner />}
       <input type="hidden" name="year" value={year} />
       <input type="hidden" name="month" value={month} />
       <div className="flex flex-wrap gap-4">

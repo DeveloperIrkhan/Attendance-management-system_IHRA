@@ -2,6 +2,8 @@
 
 import { startTransition, useActionState, useEffect, useRef } from "react";
 import type { ActionState } from "@/lib/action-state";
+import { useActionToast } from "@/components/toast/use-action-toast";
+import Spinner from "./Spinner";
 import { PERMISSION_GROUPS } from "@/lib/auth/permissions";
 
 type Props = {
@@ -34,6 +36,7 @@ export default function RoleForm({
   );
   const formRef = useRef<HTMLFormElement>(null);
   const idSuffix = initial?.id ?? "new";
+  useActionToast(state, "Role saved.");
 
   useEffect(() => {
     if (state.ok && resetOnSuccess) formRef.current?.reset();
@@ -49,6 +52,7 @@ export default function RoleForm({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="w-full space-y-4">
+      {pending && <Spinner />}
       {initial && <input type="hidden" name="id" value={initial.id} />}
 
       <div className="grid gap-3 sm:grid-cols-2">

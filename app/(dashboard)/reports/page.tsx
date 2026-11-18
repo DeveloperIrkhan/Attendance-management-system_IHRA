@@ -13,6 +13,7 @@ import { getLatestAttendanceDate } from "@/services/attendance.service";
 import ScrollTable from "@/components/ScrollTable";
 import EmployeePicker from "@/components/EmployeePicker";
 import CustomDownload from "@/components/CustomDownload";
+import DownloadButton from "@/components/toast/DownloadButton";
 import { canExportReports } from "@/lib/reports/csv";
 
 type SearchParams = Promise<Record<string, string | undefined>>;
@@ -241,18 +242,18 @@ export default async function ReportsPage({
             </div>
             {canExport && (
               <div className="flex gap-2">
-                <a
+                <DownloadButton
                   href={`/api/reports?${exportQuery.toString()}&format=pdf`}
+                  name="Report"
+                  label="Download PDF"
                   className="green-button hoverEffect"
-                >
-                  Download PDF
-                </a>
-                <a
+                />
+                <DownloadButton
                   href={`/api/reports?${exportQuery.toString()}&format=csv`}
+                  name="Report"
+                  label="Download CSV (Excel)"
                   className="green-button-inverse hoverEffect"
-                >
-                  Download CSV (Excel)
-                </a>
+                />
                 <CustomDownload
                   baseQuery={exportQuery.toString()}
                   columns={table.column.map((c) => c.label)}

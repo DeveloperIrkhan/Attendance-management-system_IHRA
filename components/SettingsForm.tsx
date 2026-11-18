@@ -2,6 +2,8 @@
 
 import { startTransition, useActionState } from "react";
 import type { ActionState } from "@/lib/action-state";
+import { useActionToast } from "@/components/toast/use-action-toast";
+import Spinner from "./Spinner";
 
 export type SettingsValues = {
   shiftStart: string;
@@ -62,6 +64,7 @@ export default function SettingsForm({
     action,
     {} as ActionState,
   );
+  useActionToast(state, "Attendance settings saved.");
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -74,6 +77,7 @@ export default function SettingsForm({
       onSubmit={onSubmit}
       className="max-w-3xl space-y-6 rounded shadow-xl bg-white p-6"
     >
+      {pending && <Spinner />}
       <section className="grid gap-4 sm:grid-cols-2">
         <Field label="Shift start">
           <input

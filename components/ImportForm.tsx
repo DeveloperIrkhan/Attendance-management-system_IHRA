@@ -5,6 +5,8 @@ import { useRef, useState } from "react";
 import { MONTHS } from "@/lib/attendance/months";
 import type { ImportSummary } from "@/lib/attendance/import-types";
 import ImportStatusBadge from "./ImportStatusBadge";
+import { notifyError, notifySuccess } from "@/components/toast/Toaster";
+import Spinner from "./Spinner";
 
 export default function ImportForm({
   defaultMonth,
@@ -28,6 +30,7 @@ export default function ImportForm({
     const file = fileRef.current?.files?.[0];
     if (!file) {
       setError("Please choose an Excel file.");
+      notifyError("Please choose an Excel file.");
       return;
     }
 
@@ -44,12 +47,21 @@ export default function ImportForm({
       });
       const data = await res.json();
       if (data.batchId) {
-        setResult(data as ImportSummary);
+        const summary = data as ImportSummary;
+        setResult(summary);
+        notifySuccess(
+          `Imported ${summary.successfulRows} of ${summary.totalRows} rows.` +
+            (summary.failedRows ? ` ${summary.failedRows} need attention.` : ""),
+        );
+        if (summary.processingError) notifyError(summary.processingError);
       } else {
-        setError(data.error ?? "Import failed.");
+        const message = data.error ?? "Import failed.";
+        setError(message);
+        notifyError(message);
       }
     } catch {
       setError("Network error. Please try again.");
+      notifyError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -63,6 +75,7 @@ export default function ImportForm({
         onSubmit={onSubmit}
         className="space-y-4 rounded-md shadow-lg bg-white p-6"
       >
+        {loading && <Spinner />}
         <div className="flex flex-wrap gap-4">
           <div className="space-y-1">
             <label className="text-sm font-medium">Month</label>

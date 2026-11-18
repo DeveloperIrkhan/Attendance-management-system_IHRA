@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requirePermission } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { toActionError, type ActionState } from "@/lib/action-state";
@@ -49,8 +48,8 @@ export async function updateEmployeeAction(
     return toActionError(e);
   }
   revalidatePath("/employees");
-  // must stay outside try/catch
-  redirect("/employees");
+  // Return instead of redirecting: the form shows the toast, then navigates.
+  return { ok: true, message: "Employee updated." };
 }
 
 export async function toggleEmployeeActiveAction(

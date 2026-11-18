@@ -3,6 +3,9 @@ import Image from "next/image";
 const Spinner = () => {
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
       className="z-50 fixed inset-0 flex justify-center items-center 
                  bg-darkColor/70 backdrop-blur-xs"
     >

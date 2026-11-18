@@ -21,6 +21,8 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
+import { notifyError, notifySuccess } from "@/components/toast/Toaster";
+import Spinner from "@/components/Spinner";
 
 type Props = {
   user: { fullName: string; roleName: string };
@@ -69,18 +71,26 @@ export default function AppShell({
     : null;
 
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   const logout = async () => {
+    setLoggingOut(true);
     try {
       const response = await axios.post("/api/auth/logout");
       if (response.data?.success) {
+        notifySuccess("Logged out.");
         router.replace(response.data.redirectTo);
         router.refresh();
+      } else {
+        notifyError("Could not log out. Please try again.");
       }
     } catch (e) {
       console.error(e);
+      notifyError("Could not log out. Please try again.");
+    } finally {
+      setLoggingOut(false);
     }
   };
   useEffect(() => {
@@ -98,6 +108,7 @@ export default function AppShell({
   }, []);
   return (
     <div className="flex min-h-screen bg-green-50 text-green-900">
+      {loggingOut && <Spinner />}
       {/* Sidebar: fixed to the left edge, full screen height (large screens only) */}
       <aside className="hidden w-64 flex-col bg-black lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:h-dvh">
         <div className="flex items-center gap-3 shadow-2xl px-5 py-5">
@@ -257,7 +268,8 @@ export default function AppShell({
                       setOpen(false);
                       logout();
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-green-600 hover:bg-green-50 transition-colors border-t border-slate-100"
+                    disabled={loggingOut}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-green-600 hover:bg-green-50 transition-colors border-t border-slate-100 disabled:opacity-50"
                   >
                     <LogOut className="w-4 h-4" /> Logout
                   </button>

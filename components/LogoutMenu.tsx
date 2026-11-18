@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { LogIn, LogOut, User, KeyRound, ShieldCheck } from "lucide-react";
 import { FaUser } from "react-icons/fa";
+import { notifyError, notifySuccess } from "@/components/toast/Toaster";
+import Spinner from "@/components/Spinner";
 type requiredUser = {
   fullName?: string;
   role?: string;
@@ -17,17 +19,25 @@ const LogoutMenu = ({ user }: IUser) => {
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const logout = async () => {
+    setLoggingOut(true);
     try {
       const response = await axios.post("/api/auth/logout");
       if (response.data?.success) {
+        notifySuccess("Logged out.");
         router.replace(response.data.redirectTo);
         router.refresh();
+      } else {
+        notifyError("Could not log out. Please try again.");
       }
     } catch (e) {
       console.log(e);
+      notifyError("Could not log out. Please try again.");
+    } finally {
+      setLoggingOut(false);
     }
   };
 
@@ -46,6 +56,7 @@ const LogoutMenu = ({ user }: IUser) => {
   }, []);
   return (
     <div ref={ref} className="relative group duration-300">
+      {loggingOut && <Spinner />}
       <div
         onClick={() => setOpen((v) => !v)}
         className="rounded-full p-2 flex justify-center cursor-pointer items-center gap-x-4 hoverEffect"
@@ -114,7 +125,8 @@ const LogoutMenu = ({ user }: IUser) => {
                 setOpen(false);
                 logout();
               }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-green-600 hover:bg-green-50 transition-colors border-t border-slate-100"
+              disabled={loggingOut}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-green-600 hover:bg-green-50 transition-colors border-t border-slate-100 disabled:opacity-50"
             >
               <LogOut className="w-4 h-4" /> Logout
             </button>

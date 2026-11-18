@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NOC_ACCEPT, NOC_MAX_BYTES } from "@/lib/noc/file";
+import { notifyError, notifySuccess } from "@/components/toast/Toaster";
+import Spinner from "./Spinner";
 
 type Props = {
   id: string;
@@ -23,10 +25,12 @@ export default function NocUploadForm({ id, label }: Props) {
     const file = fileRef.current?.files?.[0];
     if (!file) {
       setError("Choose a file first.");
+      notifyError("Choose a file first.");
       return;
     }
     if (file.size > NOC_MAX_BYTES) {
       setError("The file is too large. The limit is 3 MB.");
+      notifyError("The file is too large. The limit is 3 MB.");
       return;
     }
     if (!window.confirm(`${label}: ${file.name}?`)) return;
@@ -38,13 +42,18 @@ export default function NocUploadForm({ id, label }: Props) {
       const res = await fetch(`/api/noc/${id}/document`, { method: "POST", body });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        setError(data.error ?? "Could not upload the file.");
+        const message = data.error ?? "Could not upload the file.";
+        setError(message);
+        notifyError(message);
         return;
       }
       if (fileRef.current) fileRef.current.value = "";
+      notifySuccess("NOC file uploaded.");
       router.refresh();
     } catch {
-      setError("Could not reach the server. Check your connection and try again.");
+      const message = "Could not reach the server. Check your connection and try again.";
+      setError(message);
+      notifyError(message);
     } finally {
       setBusy(false);
     }
@@ -52,6 +61,7 @@ export default function NocUploadForm({ id, label }: Props) {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-2">
+      {busy && <Spinner />}
       <input
         ref={fileRef}
         type="file"

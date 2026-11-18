@@ -4,6 +4,7 @@ import { toIsoDate } from "@/lib/attendance/dates";
 import { listMyNocRequests } from "@/services/noc.service";
 import NocStatusBadge from "@/components/NocStatusBadge";
 import RowActionForm from "@/components/RowActionForm";
+import DownloadButton from "@/components/toast/DownloadButton";
 import type { NocApproverLevel, NocStatus } from "@/lib/noc/flow";
 import { decideNocAction } from "../actions";
 
@@ -96,12 +97,12 @@ export default async function MyNocPage() {
                 </td>
                 <td className="p-3">
                   {r.status === "ISSUED" && r.document && (
-                    <a
+                    <DownloadButton
                       href={`/api/noc/${r.id}/document`}
+                      name="NOC"
+                      label="Download NOC"
                       className="inline-block rounded border border-green-800 px-3 py-1 text-xs text-green-800 hover:bg-green-800 hover:text-white"
-                    >
-                      Download NOC
-                    </a>
+                    />
                   )}
                   {(r.status === "PENDING_DD" || r.status === "PENDING_FINAL") && (
                     <RowActionForm

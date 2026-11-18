@@ -3,6 +3,8 @@
 import { startTransition, useActionState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { ActionState } from "@/lib/action-state";
+import { useActionToast } from "@/components/toast/use-action-toast";
+import Spinner from "./Spinner";
 
 type Option = { id: string; label: string };
 
@@ -39,6 +41,7 @@ export default function LeaveRequestForm({
     {} as ActionState,
   );
   const formRef = useRef<HTMLFormElement>(null);
+  useActionToast(state, "Leave request sent for approval.");
 
   useEffect(() => {
     if (!state.ok) return;
@@ -54,6 +57,7 @@ export default function LeaveRequestForm({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="max-w-2xl space-y-4">
+      {pending && <Spinner />}
       <div className="grid gap-4 sm:grid-cols-2">
         {employees && (
           <div className="space-y-1">
