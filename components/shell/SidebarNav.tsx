@@ -13,6 +13,7 @@ import {
   History,
   LayoutDashboard,
   Menu,
+  ScrollText,
   SlidersHorizontal,
   Table2,
   TriangleAlert,
@@ -37,6 +38,7 @@ const ICONS: Record<IconKey, LucideIcon> = {
   calendar: Calendar,
   rules: SlidersHorizontal,
   noc: FileCheck,
+  audit: ScrollText,
 };
 
 export default function SidebarNav({
@@ -60,7 +62,10 @@ export default function SidebarNav({
     if (!mobileOpen) return;
 
     const closeOnOutsideClick = (event: MouseEvent) => {
-      if (mobileRef.current && !mobileRef.current.contains(event.target as Node)) {
+      if (
+        mobileRef.current &&
+        !mobileRef.current.contains(event.target as Node)
+      ) {
         setOpenForPath(null);
       }
     };
@@ -90,7 +95,11 @@ export default function SidebarNav({
               : "border-green-700 text-green-800 hover:bg-green-50"
           }`}
         >
-          {mobileOpen ? <X size={16} aria-hidden /> : <Menu size={16} aria-hidden />}
+          {mobileOpen ? (
+            <X size={16} aria-hidden />
+          ) : (
+            <Menu size={16} aria-hidden />
+          )}
           {mobileOpen ? "Close menu" : "Menu"}
         </button>
 

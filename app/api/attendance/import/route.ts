@@ -6,6 +6,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions";
 import { ServiceError } from "@/lib/action-state";
 import { validateExcelFile } from "@/lib/attendance/file-validation";
 import { importAttendanceFile } from "@/lib/attendance/import-service";
+import { recordAudit } from "@/services/audit.service";
 
 const metaSchema = z.object({
   month: z.coerce.number().int().min(1, "Select a valid month").max(12, "Select a valid month"),
@@ -43,6 +44,15 @@ export async function POST(request: Request) {
       month: meta.data.month,
       year: meta.data.year,
       userId: auth.user.id,
+    });
+
+    await recordAudit({
+      action: "attendance.import",
+      entity: "AttendanceImportBatch",
+      entityId: summary.batchId,
+      summary: `Imported ${meta.data.month}/${meta.data.year}: ${summary.successfulRows}/${summary.totalRows} rows succeeded.`,
+      after: summary,
+      actor: { id: auth.user.id, name: auth.user.fullName },
     });
 
     revalidatePath("/attendance/imports");

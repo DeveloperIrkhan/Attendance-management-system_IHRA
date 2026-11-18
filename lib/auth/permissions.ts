@@ -40,7 +40,10 @@ export const PERMISSION_GROUPS: {
     items: [
       { key: "employees:view", label: "View all employees" },
       { key: "employees:manage", label: "Add and edit employees" },
-      { key: "departments:manage", label: "Manage departments and designations" },
+      {
+        key: "departments:manage",
+        label: "Manage departments and designations",
+      },
     ],
   },
   {
@@ -54,7 +57,10 @@ export const PERMISSION_GROUPS: {
       { key: "attendance:view-own", label: "View own attendance" },
       { key: "attendance:import", label: "Import biometric Excel sheets" },
       { key: "attendance:edit", label: "Correct attendance records" },
-      { key: "attendance:settings", label: "Change attendance rules and calendar" },
+      {
+        key: "attendance:settings",
+        label: "Change attendance rules and calendar",
+      },
     ],
   },
   {
@@ -86,8 +92,11 @@ export const PERMISSION_GROUPS: {
   {
     title: "Reports",
     items: [
-      { key: "reports:view", label: "View reports" },
-      { key: "reports:export", label: "Export reports" },
+      {
+        key: "reports:export",
+        label: "Export reports",
+        hint: "Viewing reports follows the person's data scope (department or organization).",
+      },
     ],
   },
   {
@@ -95,8 +104,11 @@ export const PERMISSION_GROUPS: {
     items: [
       { key: "users:manage", label: "Manage users" },
       { key: "roles:manage", label: "Manage roles and permissions" },
-      { key: "backup:manage", label: "Manage backups" },
-      { key: "audit:view", label: "View audit log" },
+      {
+        key: "audit:view",
+        label: "View the change log",
+        hint: "Who changed the rules, added employees, edited users, decided leave… Admin only.",
+      },
     ],
   },
 ];
@@ -166,30 +178,3 @@ export function canIssueNoc(permissions: string[]): boolean {
     permissions.includes(PERMISSIONS.LEAVES_MANAGE)
   );
 }
-// export function getHomePath(permissions: string[]): string {
-//   // Management users
-//   if (
-//     permissions.includes(P.USERS_MANAGE) ||
-//     permissions.includes(P.ATTENDANCE_VIEW) ||
-//     permissions.includes(P.ATTENDANCE_IMPORT)
-//   ) {
-//     return "/dashboard";
-//   }
-
-//   // Employees who can request leave should land here first
-//   if (permissions.includes(P.LEAVES_REQUEST)) {
-//     return "/leaves/my";
-//   }
-
-//   // Employees who can only view their own attendance
-//   if (permissions.includes(P.ATTENDANCE_VIEW_OWN)) {
-//     return "/attendance/my";
-//   }
-
-//   return "/unauthorized";
-// }
-
-// ADMIN: sees all dashboard statistics, user management, imports, settings, and reports.
-// HR: sees employee management, attendance, leaves, and reports.
-// IT_OFFICER: sees attendance statistics and Excel import features.
-// EMPLOYEE: sees only personal attendance and personal leave information.

@@ -23,6 +23,7 @@ import {
   createShortLeave,
   decideShortLeave,
 } from "@/services/short-leave.service";
+import { recordAudit } from "@/services/audit.service";
 
 function refresh() {
   revalidatePath("/leaves");
@@ -114,7 +115,21 @@ export async function decideLeaveRequestAction(
   const parsed = decisionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Invalid request." };
   try {
-    await decideLeaveRequest(parsed.data.id, parsed.data.decision, user);
+    const updated = await decideLeaveRequest(parsed.data.id, parsed.data.decision, user);
+    const action =
+      parsed.data.decision === "APPROVED"
+        ? "leave.approved"
+        : parsed.data.decision === "REJECTED"
+          ? "leave.rejected"
+          : "leave.cancelled";
+    await recordAudit({
+      action,
+      entity: "LeaveRequest",
+      entityId: parsed.data.id,
+      summary: `Leave request ${parsed.data.decision.toLowerCase()} by ${user.fullName}.`,
+      after: updated,
+      actor: { id: user.id, name: user.fullName },
+    });
   } catch (e) {
     return toActionError(e);
   }

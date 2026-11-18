@@ -3,6 +3,7 @@ import { ServiceError } from "@/lib/action-state";
 import { apiAuth } from "@/lib/auth/authorization";
 import { downloadHeader, NOC_MAX_BYTES } from "@/lib/noc/file";
 import { getNocDocumentFor, issueNoc } from "@/services/noc.service";
+import { recordAudit } from "@/services/audit.service";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -50,6 +51,14 @@ export async function POST(request: Request, { params }: Context) {
       return NextResponse.json({ error: "Choose a file to upload." }, { status: 400 });
     }
     await issueNoc(auth.user, id, file);
+    await recordAudit({
+      action: "noc.issue",
+      entity: "NocRequest",
+      entityId: id,
+      summary: `NOC document uploaded: ${file.name}`,
+      after: { fileName: file.name, size: file.size },
+      actor: { id: auth.user.id, name: auth.user.fullName },
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     if (e instanceof ServiceError) {

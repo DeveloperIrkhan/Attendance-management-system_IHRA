@@ -5,8 +5,9 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { toActionError, type ActionState } from "@/lib/action-state";
 import { settingsFromForm, settingsSchema } from "@/validations/attendance-settings.validation";
-import { updateSettings } from "@/services/settings.service";
+import { getSettings, updateSettings } from "@/services/settings.service";
 import { processDevicePunches } from "@/services/device-attendance.service";
+import { recordAudit } from "@/services/audit.service";
 import { officeNow } from "@/lib/attendance/office-clock";
 
 const DAY_MS = 86_400_000;
@@ -31,7 +32,17 @@ export async function updateSettingsAction(
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
+    const before = await getSettings();
     await updateSettings(parsed.data, user.id);
+    await recordAudit({
+      action: "settings.update",
+      entity: "AttendanceSettings",
+      entityId: "default",
+      summary: "Attendance rules were updated.",
+      before,
+      after: parsed.data,
+      actor: { id: user.id, name: user.fullName },
+    });
   } catch (e) {
     return toActionError(e);
   }

@@ -246,6 +246,18 @@ erDiagram
   DateTime createdAt
   DateTime updatedAt
 }
+"AuditLog" {
+  String id PK
+  String actorId "nullable"
+  String actorName
+  String action
+  String entity
+  String entityId "nullable"
+  String summary
+  Json before "nullable"
+  Json after "nullable"
+  DateTime createdAt
+}
 "User" {
   String id PK
   String fullName
@@ -253,6 +265,7 @@ erDiagram
   String passwordHash
   Boolean isActive
   Boolean mustChangePassword
+  Int sessionVersion
   Int failedLoginAttempts
   DateTime lockedUntil "nullable"
   String roleId FK
@@ -589,6 +602,21 @@ Properties as follows:
 - `createdAt`:
 - `updatedAt`:
 
+### `AuditLog`
+
+Properties as follows:
+
+- `id`:
+- `actorId`:
+- `actorName`:
+- `action`:
+- `entity`:
+- `entityId`:
+- `summary`:
+- `before`:
+- `after`:
+- `createdAt`:
+
 ### `User`
 
 Properties as follows:
@@ -599,6 +627,7 @@ Properties as follows:
 - `passwordHash`:
 - `isActive`:
 - `mustChangePassword`:
+- `sessionVersion`:
 - `failedLoginAttempts`:
 - `lockedUntil`:
 - `roleId`:

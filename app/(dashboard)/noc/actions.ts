@@ -9,6 +9,7 @@ import {
   createNocRequest,
   decideNocRequest,
 } from "@/services/noc.service";
+import { recordAudit } from "@/services/audit.service";
 
 const requestSchema = z.object({
   category: z.string().max(60),
@@ -82,6 +83,20 @@ export async function decideNocAction(
 
   try {
     await decideNocRequest(parsed.data.id, parsed.data.decision, user, parsed.data.note);
+    const action =
+      parsed.data.decision === "YES"
+        ? "noc.approve"
+        : parsed.data.decision === "NO"
+          ? "noc.reject"
+          : "noc.cancel";
+    await recordAudit({
+      action,
+      entity: "NocRequest",
+      entityId: parsed.data.id,
+      summary: `NOC request ${parsed.data.decision.toLowerCase()}${parsed.data.note ? `: ${parsed.data.note}` : ""}`,
+      after: { decision: parsed.data.decision, note: parsed.data.note ?? null },
+      actor: { id: user.id, name: user.fullName },
+    });
   } catch (e) {
     return toActionError(e);
   }
