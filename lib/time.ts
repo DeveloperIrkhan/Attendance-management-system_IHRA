@@ -13,3 +13,17 @@ export function formatMinutesToHours(minutes: number): string {
 
   return `${hours}h & ${remainingMinutes}m`;
 }
+
+export function formatDateTime(date: Date | string | null) {
+  if (!date) return "-";
+
+  return new Date(date).toLocaleString("en-PK", {
+    timeZone: "Asia/Karachi",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}

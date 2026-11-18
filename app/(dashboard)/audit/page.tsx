@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/permissions";
-import {
-  listAuditFacets,
-  listAuditLogs,
-} from "@/services/audit.service";
+import { listAuditFacets, listAuditLogs } from "@/services/audit.service";
+import { formatDateTime } from "@/lib/time";
 
 type SearchParams = Promise<{
   q?: string;
@@ -13,7 +11,8 @@ type SearchParams = Promise<{
   page?: string;
 }>;
 
-const when = (d: Date) => `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+const when = (d: Date) =>
+  `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
 
 const ACTION_LABEL: Record<string, string> = {
   "settings.update": "Rules changed",
@@ -174,7 +173,7 @@ export default async function AuditPage({
             {result.items.map((entry) => (
               <tr key={entry.id} className="border-t align-top">
                 <td className="whitespace-nowrap p-3 text-zinc-600">
-                  {when(entry.createdAt)}
+                  {formatDateTime(entry.createdAt)}
                 </td>
                 <td className="p-3">
                   <div className="font-medium">{entry.actorName}</div>
