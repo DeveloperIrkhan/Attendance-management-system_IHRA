@@ -307,9 +307,11 @@ export default async function ReportsPage({
                           : row.includes("Short leave")
                             ? "border-t bg-yellow-100"
                           : row.includes("Holiday")
-                            ? "border-t bg-lime-100"
+                            ? "border-t bg-blue-100"
                           : row.includes("Present")
                             ? "border-t bg-green-100"
+                          : row.includes("Half day")
+                            ? "border-t bg-pink-100"
                             : "border-t"
                     }
                   >

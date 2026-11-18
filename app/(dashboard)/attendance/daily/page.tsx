@@ -309,7 +309,7 @@ export default async function DailyAttendancePage({
               <th className="p-3">Late (min)</th>
               <th className="p-3">Overtime</th>
               <th className="p-3">Status</th>
-              <th className="p-3">Remarks</th>
+              <th className="p-3">Remarks/Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -366,7 +366,7 @@ export default async function DailyAttendancePage({
                 <td className="p-3">
                   <AttendanceStatusBadge status={r.status} />
                 </td>
-                <td className="p-3">
+                <td className="p-3 text-center">
                   {/* {r.remarks && (
                     <p
                       className={`max-w-xs text-xs ${

@@ -2,10 +2,12 @@
 import Link from "next/link";
 import {
   Bell,
+  DoorOpen,
   Fingerprint,
   KeyRound,
   LogOut,
   Search,
+  Settings,
   ShieldCheck,
   User,
 } from "lucide-react";
@@ -161,7 +163,9 @@ export default function AppShell({
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-green-800 text-white lg:hidden">
               <Fingerprint size={18} aria-hidden />
             </span>
-
+            <p className="text-md font-bold text-green-800 flex md:hidden tracking-[3px] uppercase">
+              IHRA Attendance System
+            </p>
             {canSearchEmployees ? (
               <form
                 action="/employees"
@@ -184,7 +188,6 @@ export default function AppShell({
               <div className="flex-1" />
             )}
             <div className="flex-1 sm:hidden" />
-
             <div ref={ref} className="ml-auto flex items-center gap-3">
               {syncHealth && <SyncHealthBadge {...syncHealth} />}
               <Link
@@ -237,31 +240,13 @@ export default function AppShell({
                     <KeyRound className="w-4 h-4" /> Change Password
                   </Link>
 
-                  {user.roleName === "Admin" && (
-                    <>
-                      <Link
-                        href="/dashboard/users/pending-approvals"
-                        onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-50 hover:text-green-600 transition-colors"
-                      >
-                        <ShieldCheck className="w-4 h-4" /> Pending Approvals
-                      </Link>
-                      <Link
-                        href="/dashboard/users/view-all"
-                        onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-50 hover:text-green-600 transition-colors"
-                      >
-                        <ShieldCheck className="w-4 h-4" /> All Users
-                      </Link>
-                      <Link
-                        href="/dashboard/roles/view-all"
-                        onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-50 hover:text-green-600 transition-colors"
-                      >
-                        <ShieldCheck className="w-4 h-4" /> Manage Roles
-                      </Link>
-                    </>
-                  )}
+                  <Link
+                    href="/roles"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-green-50 hover:text-green-600 transition-colors"
+                  >
+                    <Settings className="w-4 h-4" /> Manage Roles
+                  </Link>
 
                   <button
                     onClick={() => {
@@ -271,7 +256,7 @@ export default function AppShell({
                     disabled={loggingOut}
                     className="w-full flex items-center gap-3 px-4 py-3 text-sm text-green-600 hover:bg-green-50 transition-colors border-t border-slate-100 disabled:opacity-50"
                   >
-                    <LogOut className="w-4 h-4" /> Logout
+                    <DoorOpen className="w-4 h-4" /> Logout
                   </button>
                 </div>
               )}

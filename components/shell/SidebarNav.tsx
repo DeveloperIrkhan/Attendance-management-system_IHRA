@@ -75,7 +75,7 @@ export default function SidebarNav({
   }
 
   return (
-    <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4 scrollbar-none [&::-webkit-scrollbar]:hidden">
       {sections.map((section) => (
         <div key={section.title}>
           <p className="px-3 pb-1.5 text-xs font-medium text-slate-500">
