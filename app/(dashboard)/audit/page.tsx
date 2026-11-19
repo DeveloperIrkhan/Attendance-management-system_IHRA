@@ -11,9 +11,6 @@ type SearchParams = Promise<{
   page?: string;
 }>;
 
-const when = (d: Date) =>
-  `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
-
 const ACTION_LABEL: Record<string, string> = {
   "settings.update": "Rules changed",
   "employee.create": "Employee added",
@@ -21,6 +18,7 @@ const ACTION_LABEL: Record<string, string> = {
   "employee.activate": "Employee reactivated",
   "employee.deactivate": "Employee deactivated",
   "employee.reset-login": "Employee login reset",
+  "employee.delete": "Employee deleted",
   "user.create": "User created",
   "user.update": "User edited",
   "user.change-role": "User role changed",

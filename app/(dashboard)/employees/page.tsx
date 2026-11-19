@@ -10,7 +10,10 @@ import { PERMISSIONS } from "@/lib/auth/permissions";
 import { listEmployees } from "@/services/employee.service";
 import { listDepartments } from "@/services/department.service";
 import RowActionForm from "@/components/RowActionForm";
-import { toggleEmployeeActiveAction } from "./actions";
+import {
+  deleteEmployeeAction,
+  toggleEmployeeActiveAction,
+} from "./actions";
 
 type SearchParams = Promise<{
   q?: string;
@@ -176,6 +179,13 @@ export default async function EmployeesPage({
                       confirmMessage={
                         e.isActive ? `Deactivate ${e.name}?` : undefined
                       }
+                    />
+                    <RowActionForm
+                      action={deleteEmployeeAction}
+                      id={e.id}
+                      label="Delete"
+                      danger
+                      confirmMessage={`Delete ${e.name} and all of their attendance, leave, NOC history, and login? This cannot be undone.`}
                     />
                   </td>
                 )}

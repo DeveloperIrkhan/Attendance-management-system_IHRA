@@ -244,6 +244,38 @@ export async function setEmployeeActive(id: string, isActive: boolean) {
 }
 
 /**
+ * Hard-deletes an employee together with their login and all of their history.
+ * Everything runs in one transaction, so a failure leaves the employee intact.
+ */
+export async function deleteEmployee(id: string) {
+  const employee = await prisma.employee.findUnique({
+    where: { id },
+    select: { id: true, name: true, user: { select: { id: true } } },
+  });
+  if (!employee) throw new ServiceError("Employee not found.");
+
+  return prisma.$transaction(async (tx) => {
+    // Delete the login first; otherwise Employee -> User would only null employeeId.
+    if (employee.user) {
+      await tx.user.delete({ where: { id: employee.user.id } });
+    }
+
+    // Required relations must go before the employee. The rest cascade, but deleting
+    // them explicitly keeps the order obvious and independent of schema defaults.
+    await tx.nocRequest.deleteMany({ where: { employeeId: id } });
+    await tx.leaveRequest.deleteMany({ where: { employeeId: id } });
+    await tx.shortLeave.deleteMany({ where: { employeeId: id } });
+    await tx.attendance.deleteMany({ where: { employeeId: id } });
+    await tx.importedAttendanceRow.deleteMany({ where: { employeeId: id } });
+    await tx.departmentCharge.deleteMany({ where: { employeeId: id } });
+    await tx.actingApprover.deleteMany({ where: { employeeId: id } });
+
+    await tx.employee.delete({ where: { id } });
+    return employee;
+  });
+}
+
+/**
  * Gives the employee a new random one-time password and forces a change at next sign-in.
  * Also creates the login if the employee has none yet (employees added before auto-login).
  * Use this for lost passwords, and later for "send login details by email".

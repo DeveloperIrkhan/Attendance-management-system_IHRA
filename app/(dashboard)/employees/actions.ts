@@ -7,6 +7,7 @@ import { toActionError, type ActionState } from "@/lib/action-state";
 import { employeeSchema } from "@/validations/employee.validation";
 import {
   createEmployee,
+  deleteEmployee,
   getEmployee,
   resetEmployeeLogin,
   setEmployeeActive,
@@ -101,6 +102,32 @@ export async function toggleEmployeeActiveAction(
   }
   revalidatePath("/employees");
   return { ok: true };
+}
+
+export async function deleteEmployeeAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const actor = await requirePermission(PERMISSIONS.EMPLOYEES_MANAGE);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Missing employee id." };
+
+  try {
+    const before = await getEmployee(id);
+    await deleteEmployee(id);
+    await recordAudit({
+      action: "employee.delete",
+      entity: "Employee",
+      entityId: id,
+      summary: `Employee deleted: ${before?.name ?? id}`,
+      before,
+      actor: { id: actor.id, name: actor.fullName },
+    });
+  } catch (e) {
+    return toActionError(e);
+  }
+  revalidatePath("/employees");
+  return { ok: true, message: "Employee deleted." };
 }
 
 export async function resetEmployeeLoginAction(
