@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { formatMinutes } from "@/lib/attendance/attendance-rules";
-import { addDays, clockText, monthParam, toIsoDate } from "@/lib/attendance/dates";
+import {
+  addDays,
+  clockText,
+  monthParam,
+  toIsoDate,
+} from "@/lib/attendance/dates";
 import {
   dailyQuery,
   dailyStatusLabel,
@@ -21,7 +26,7 @@ import AttendanceStatusBadge, {
 } from "@/components/AttendanceStatusBadge";
 import DailyFilters from "@/components/DailyFilters";
 import { hasPermission, requireScope } from "@/lib/auth/authorization";
-
+import { convertIntoHrs } from "@/lib/time";
 type SearchParams = Promise<{
   date?: string;
   from?: string;
@@ -248,8 +253,8 @@ export default async function DailyAttendancePage({
 
       {range.clamped && (
         <p className="rounded bg-amber-50 p-2 text-xs text-amber-800">
-          The range was longer than a year, so only the last 366 days up to
-          your end date are shown.
+          The range was longer than a year, so only the last 366 days up to your
+          end date are shown.
         </p>
       )}
 
@@ -359,7 +364,7 @@ export default async function DailyAttendancePage({
                 <td className="p-3">
                   {r.workingMinutes ? formatMinutes(r.workingMinutes) : "-"}
                 </td>
-                <td className="p-3">{r.lateMinutes || "-"}</td>
+                <td className="p-3"> {convertIntoHrs(r.lateMinutes) || "-"}</td>
                 <td className="p-3">
                   {r.overtimeMinutes ? formatMinutes(r.overtimeMinutes) : "-"}
                 </td>

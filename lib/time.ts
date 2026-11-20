@@ -27,3 +27,16 @@ export function formatDateTime(date: Date | string | null) {
     hour12: true,
   });
 }
+
+export function convertIntoHrs(minutes: number | null | undefined) {
+  if (!minutes) return "-";
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (hours === 0) return `${remainingMinutes} min`;
+
+  return remainingMinutes === 0
+    ? `${hours} hr`
+    : `${hours} hr ${remainingMinutes} min`;
+}
