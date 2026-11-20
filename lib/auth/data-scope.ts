@@ -5,13 +5,13 @@
 //   DD (head of department)                              -> DEPARTMENT (their own, plus any additional charge)
 //   everyone else                                        -> SELF (only their own data)
 //
-// Pure functions: no database, easy to test.
 import { PERMISSIONS } from "./permissions";
 import type { ApprovalLevel } from "@/lib/leave/approval-routing";
 
 export type DataScope =
   | { kind: "ALL" }
-  // departmentId is the DD's own department; departmentIds also has any additional charge
+  // departmentId is the DD's own department
+  // departmentIds also has any additional charge
   | { kind: "DEPARTMENT"; departmentId: string; departmentIds: string[] }
   | { kind: "SELF"; employeeId: string | null };
 
@@ -20,7 +20,7 @@ export function resolveDataScope(input: {
   level: ApprovalLevel;
   employeeId: string | null;
   departmentId: string | null;
-  /** departments the DD also looks after */
+  // departments the DD also looks after 
   chargeDepartmentIds?: string[];
 }): DataScope {
   if (input.permissions.includes(PERMISSIONS.ATTENDANCE_VIEW)) {
@@ -41,15 +41,12 @@ export function resolveDataScope(input: {
   return { kind: "SELF", employeeId: input.employeeId };
 }
 
-/**
- * Whose LEAVE requests a person may look at (the Leaves pages). Stricter than resolveDataScope:
- * an IT Officer sees everyone's attendance but has no business reading leave reasons.
- *
- *   leaves:manage (HR) or leaves:view   -> ALL
- *   CEO, Chairman (by designation)      -> ALL
- *   DD (by designation)                 -> DEPARTMENT (their own, plus any additional charge)
- *   everyone else                       -> null (no access to the Leaves pages)
- */
+ // Whose LEAVE requests a person may look at (the Leaves pages). 
+ // an IT Officer sees everyone's attendance 
+ //   leaves:manage (HR) or leaves:view   -> ALL
+ //   CEO, Chairman (by designation)      -> ALL
+ //   DD (by designation)                 -> DEPARTMENT onlly
+ //   everyone else                       -> null
 export function resolveLeaveScope(input: {
   permissions: string[];
   level: ApprovalLevel;
@@ -77,11 +74,6 @@ export function resolveLeaveScope(input: {
   return null;
 }
 
-/**
- * Prisma `where` for Employee rows this scope may see.
- * `requestedDepartmentId` is the department filter chosen on a page: it narrows ALL,
- * and for a DD it only narrows within their own departments (a DD can never widen their scope with ?department=).
- */
 export function employeeWhereFor(
   scope: DataScope,
   requestedDepartmentId?: string,

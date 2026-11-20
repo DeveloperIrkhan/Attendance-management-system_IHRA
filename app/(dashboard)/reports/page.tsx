@@ -240,6 +240,45 @@ export default async function ReportsPage({
               <h2 className="font-semibold">{table.title}</h2>
               <p className="text-sm text-zinc-500">{table.subtitle}</p>
             </div>
+
+            {/* row.includes("Weekly off")
+                          ? "border-t bg-gray-100"
+                          : row.includes("On leave")
+                            ? "border-t bg-red-100"
+                          : row.includes("Short leave")
+                            ? "border-t bg-yellow-100"
+                          : row.includes("Holiday")
+                            ? "border-t bg-blue-100"
+                          : row.includes("Present")
+                            ? "border-t bg-green-100"
+                          : row.includes("Half day")
+                            ? "border-t bg-pink-100" */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1">
+                <span className="inline-block h-4 w-4 rounded-full bg-red-200"></span>
+                <h2 className="font-normal tracking-[1px] text-sm">On Leave</h2>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="inline-block h-4 w-4 rounded-full bg-yellow-200"></span>
+                <h2 className="font-normal tracking-[1px] text-sm">Short Leave</h2>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="inline-block h-4 w-4 rounded-full bg-green-200"></span>
+                <h2 className="font-normal tracking-[1px] text-sm">Present</h2>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="inline-block h-4 w-4 rounded-full bg-pink-200"></span>
+                <h2 className="font-normal tracking-[1px] text-sm">Half Day</h2>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="inline-block h-4 w-4 rounded-full bg-blue-200"></span>
+                <h2 className="font-normal tracking-[1px] text-sm">Holiday</h2>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="inline-block h-4 w-4 rounded-full bg-gray-200"></span>
+                <h2 className="font-normal tracking-[1px] text-sm">Weekly Off</h2>
+              </div>
+            </div>
             {canExport && (
               <div className="flex gap-2">
                 <DownloadButton
@@ -304,15 +343,15 @@ export default async function ReportsPage({
                           ? "border-t bg-gray-100"
                           : row.includes("On leave")
                             ? "border-t bg-red-100"
-                          : row.includes("Short leave")
-                            ? "border-t bg-yellow-100"
-                          : row.includes("Holiday")
-                            ? "border-t bg-blue-100"
-                          : row.includes("Present")
-                            ? "border-t bg-green-100"
-                          : row.includes("Half day")
-                            ? "border-t bg-pink-100"
-                            : "border-t"
+                            : row.includes("Short leave")
+                              ? "border-t bg-yellow-100"
+                              : row.includes("Holiday")
+                                ? "border-t bg-blue-100"
+                                : row.includes("Present")
+                                  ? "border-t bg-green-100"
+                                  : row.includes("Half day")
+                                    ? "border-t bg-pink-100"
+                                    : "border-t"
                     }
                   >
                     {row.map((cell, j) => (

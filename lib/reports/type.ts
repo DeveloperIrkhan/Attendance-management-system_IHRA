@@ -32,7 +32,7 @@ export const REPORT_TYPE: {
   },
   {
     value: "salary",
-    label: "Salary attendance sheet",
+    label: "Detailed Attendance sheet",
     description:
       "One row per employee per day, with check-in and check-out and a total row for each employee, for salary records. For everybody, one department, or any employees you choose",
     filters: ["month", "range", "department", "employee"],

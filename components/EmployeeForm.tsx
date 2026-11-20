@@ -100,7 +100,7 @@ export default function EmployeeForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="max-w-2xl form-style space-y-4 rounded bg-white p-6"
+      className="max-w-2xl  space-y-4 rounded bg-white p-6"
     >
       {pending && <Spinner />}
       {initial.id && <input type="hidden" name="id" value={initial.id} />}

@@ -28,7 +28,6 @@ export default async function EmployeesPage({
   searchParams: SearchParams;
 }) {
   const user = await requireUser();
-  // employees:view lists everyone; otherwise a DD sees their own department (view only)
   const scope: DataScope = hasPermission(user, PERMISSIONS.EMPLOYEES_VIEW)
     ? { kind: "ALL" }
     : getDataScope(user);

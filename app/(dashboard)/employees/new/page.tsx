@@ -28,14 +28,19 @@ export default async function NewEmployeePage() {
   }
 
   return (
-    <div className="flex w-full justify-center">
-      <div className="space-y-4">
-        <h1 className="text-xl font-semibold">Add employee</h1>
-        <EmployeeForm
-          action={createEmployeeAction}
-          departments={departments.map((d) => ({ id: d.id, label: d.name }))}
-          designations={designations.map((d) => ({ id: d.id, label: d.title }))}
-        />
+    <div className=" hfull flex justify-center items-center">
+      <div className="max-w-2xl flex items-center w-full bg-white p-3 justify-center">
+        <div className="space-y-4 ">
+          <h1 className="text-xl font-semibold">Add employee</h1>
+          <EmployeeForm
+            action={createEmployeeAction}
+            departments={departments.map((d) => ({ id: d.id, label: d.name }))}
+            designations={designations.map((d) => ({
+              id: d.id,
+              label: d.title,
+            }))}
+          />
+        </div>
       </div>
     </div>
   );
